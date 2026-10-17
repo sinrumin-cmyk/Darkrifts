@@ -1,0 +1,15 @@
+{
+  "block.darkrifts.rift": "Rift",
+  "item.darkrifts.rift_blade": "Rift Blade",
+  "itemGroup.darkrifts": "Dark Rifts",
+  "tooltip.darkrifts.rift_blade.1": "Tears holes in the sky to the dark realms.",
+  "tooltip.darkrifts.rift_blade.2": "Hold Right Click, look up and drag your view to draw a rift.",
+  "message.darkrifts.stroke_too_short": "The rift fizzles out... drag further.",
+  "message.darkrifts.no_room": "There is no room for a rift here.",
+  "message.darkrifts.dimension_missing": "The rift leads nowhere (%s is missing).",
+  "biome.darkrifts.umbral_plains": "Umbral Plains",
+  "biome.darkrifts.gloomwood": "Gloomwood",
+  "biome.darkrifts.ashen_wastes": "Ashen Wastes",
+  "biome.darkrifts.void_marsh": "Void Marsh",
+  "biome.darkrifts.nightfall_peaks": "Nightfall Peaks"
+}

@@ -1,0 +1,132 @@
+{
+  "type": "darkrifts:dark_tall",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "minecraft:large_biomes",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "darkrifts:gloomwood",
+          "parameters": {
+            "temperature": [
+              -1.0,
+              -0.5
+            ],
+            "humidity": [
+              -2.0,
+              2.0
+            ],
+            "continentalness": [
+              -2.0,
+              2.0
+            ],
+            "erosion": [
+              -2.0,
+              2.0
+            ],
+            "depth": [
+              -2.0,
+              2.0
+            ],
+            "weirdness": [
+              -2.0,
+              2.0
+            ],
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "darkrifts:ashen_wastes",
+          "parameters": {
+            "temperature": [
+              -0.5,
+              0.0
+            ],
+            "humidity": [
+              -2.0,
+              2.0
+            ],
+            "continentalness": [
+              -2.0,
+              2.0
+            ],
+            "erosion": [
+              -2.0,
+              2.0
+            ],
+            "depth": [
+              -2.0,
+              2.0
+            ],
+            "weirdness": [
+              -2.0,
+              2.0
+            ],
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "darkrifts:void_marsh",
+          "parameters": {
+            "temperature": [
+              0.0,
+              0.5
+            ],
+            "humidity": [
+              -2.0,
+              2.0
+            ],
+            "continentalness": [
+              -2.0,
+              2.0
+            ],
+            "erosion": [
+              -2.0,
+              2.0
+            ],
+            "depth": [
+              -2.0,
+              2.0
+            ],
+            "weirdness": [
+              -2.0,
+              2.0
+            ],
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "darkrifts:nightfall_peaks",
+          "parameters": {
+            "temperature": [
+              0.5,
+              1.0
+            ],
+            "humidity": [
+              -2.0,
+              2.0
+            ],
+            "continentalness": [
+              -2.0,
+              2.0
+            ],
+            "erosion": [
+              -2.0,
+              2.0
+            ],
+            "depth": [
+              -2.0,
+              2.0
+            ],
+            "weirdness": [
+              -2.0,
+              2.0
+            ],
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

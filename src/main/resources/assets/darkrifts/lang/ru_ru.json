@@ -1,0 +1,15 @@
+{
+  "block.darkrifts.rift": "Разлом",
+  "item.darkrifts.rift_blade": "Клинок разломов",
+  "itemGroup.darkrifts": "Тёмные разломы",
+  "tooltip.darkrifts.rift_blade.1": "Рвёт небо, открывая путь в тёмные миры.",
+  "tooltip.darkrifts.rift_blade.2": "Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом.",
+  "message.darkrifts.stroke_too_short": "Разлом угас... веди дальше.",
+  "message.darkrifts.no_room": "Здесь нет места для разлома.",
+  "message.darkrifts.dimension_missing": "Разлом ведёт в никуда (%s отсутствует).",
+  "biome.darkrifts.umbral_plains": "Сумрачные равнины",
+  "biome.darkrifts.gloomwood": "Мрачная чаща",
+  "biome.darkrifts.ashen_wastes": "Пепельная пустошь",
+  "biome.darkrifts.void_marsh": "Бездонное болото",
+  "biome.darkrifts.nightfall_peaks": "Пики Сумерек"
+}
