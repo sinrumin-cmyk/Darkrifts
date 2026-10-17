@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -91,20 +92,33 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         u = u.normalize();
         Vec3 v = f.cross(u).normalize();
 
+        // Opening animation: the shard stretches out with a little overshoot, and flashes white-violet.
+        float age = Math.max(0.0F, time - be.getSpawnTime());
+        float t = Math.min(1.0F, age / 10.0F);
+        float grow = t >= 1.0F ? 1.0F : 1.0F + 2.7F * (t - 1.0F) * (t - 1.0F) * (t - 1.0F) + 1.7F * (t - 1.0F) * (t - 1.0F);
+        grow = Mth.clamp(grow, 0.0F, 1.25F);
+        float flash = Math.max(0.0F, 1.0F - age / 14.0F);
+        float widthGrow = 1.0F + flash * 1.4F;
+
         float pulse = 1.0F + 0.12F * (float) Math.sin(time * 0.13 + rand(h, 24) * 6.28);
-        float halfLen = (links <= 1 ? 0.6F : 0.95F) * (0.85F + 0.3F * rand(h, 32)) * pulse;
-        float halfWid = (0.17F + 0.12F * rand(h, 40)) * pulse;
+        float halfLen = (links <= 1 ? 0.6F : 0.95F) * (0.85F + 0.3F * rand(h, 32)) * pulse * grow;
+        float halfWid = (0.17F + 0.12F * rand(h, 40)) * pulse * Math.min(1.0F, 0.3F + grow) * widthGrow;
 
         VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
         VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
 
-        shard(core, glow, pose, pos, c, f, u, v, halfLen, halfWid, h, time);
+        shard(core, glow, pose, pos, c, f, u, v, halfLen, halfWid, h, time, flash);
         // A short spike across the crack, slowly turning - gives the star-burst look.
-        shard(core, glow, pose, pos, c, f, v, u.scale(-1), halfLen * 0.42F, halfWid * 0.8F, hash(h), time);
+        shard(core, glow, pose, pos, c, f, v, u.scale(-1), halfLen * 0.42F, halfWid * 0.8F, hash(h), time, flash);
+        if (flash > 0.0F) {
+            // Extra long flare while opening.
+            shard(core, glow, pose, pos, c, f, u, v, halfLen * (1.0F + flash * 1.6F), halfWid * 0.35F, hash(h + 7), time, flash);
+        }
     }
 
     private static void shard(VertexConsumer core, VertexConsumer glow, Matrix4f pose, BlockPos origin,
-                              Vec3 c, Vec3 f, Vec3 u, Vec3 v, float halfLen, float halfWid, long h, float time) {
+                              Vec3 c, Vec3 f, Vec3 u, Vec3 v, float halfLen, float halfWid, long h, float time,
+                              float flash) {
         // Irregular radii; the two tips (i = 0 and RING/2) stay at full length.
         float[] r = new float[RING];
         for (int i = 0; i < RING; i++) {
@@ -117,8 +131,11 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         }
 
         // layer: scale, push-away, colour (r = -1 means position only / portal shader)
-        fan(glow, pose, origin, c.subtract(f.scale(0.030)), u, v, halfLen * 1.75F, halfWid * 2.2F, r, 110, 40, 230, 42);
-        fan(glow, pose, origin, c.subtract(f.scale(0.015)), u, v, halfLen * 1.25F, halfWid * 1.45F, r, 225, 170, 255, 120);
+        int haloA = Math.min(255, 42 + (int) (flash * 150));
+        int rimA = Math.min(255, 120 + (int) (flash * 135));
+        int rimG = Math.min(255, 170 + (int) (flash * 85));
+        fan(glow, pose, origin, c.subtract(f.scale(0.030)), u, v, halfLen * 1.75F, halfWid * 2.2F, r, 110, 40, 230, haloA);
+        fan(glow, pose, origin, c.subtract(f.scale(0.015)), u, v, halfLen * 1.25F, halfWid * 1.45F, r, 225, rimG, 255, rimA);
         fan(core, pose, origin, c, u, v, halfLen, halfWid, r, -1, 0, 0, 0);
     }
 

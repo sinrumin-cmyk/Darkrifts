@@ -119,9 +119,10 @@ def make_client_assets():
         "item.%s.rift_blade" % MOD: "Rift Blade",
         "itemGroup.%s" % MOD: "Dark Rifts",
         "tooltip.%s.rift_blade.1" % MOD: "Tears rifts in the sky into the dark mirror of the world.",
-        "tooltip.%s.rift_blade.2" % MOD: "Hold Right Click, look up and drag your view to draw a rift.",
+        "tooltip.%s.rift_blade.2" % MOD: "Hold Right Click, look up and drag your view to draw a rift. Sneak + Right Click on a rift closes it.",
         "message.%s.stroke_too_short" % MOD: "The rift fizzles out... drag further.",
         "message.%s.no_room" % MOD: "There is no room for a rift here.",
+        "message.%s.cant_close" % MOD: "This return rift cannot be closed.",
         "message.%s.dimension_missing" % MOD: "The rift leads nowhere (%s is missing).",
     }
     ru = {
@@ -129,9 +130,10 @@ def make_client_assets():
         "item.%s.rift_blade" % MOD: "Клинок разломов",
         "itemGroup.%s" % MOD: "Тёмные разломы",
         "tooltip.%s.rift_blade.1" % MOD: "Рвёт небо, открывая путь в тёмное зеркало мира.",
-        "tooltip.%s.rift_blade.2" % MOD: "Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом.",
+        "tooltip.%s.rift_blade.2" % MOD: "Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом. Shift + ПКМ по разлому закрывает его.",
         "message.%s.stroke_too_short" % MOD: "Разлом угас... веди дальше.",
         "message.%s.no_room" % MOD: "Здесь нет места для разлома.",
+        "message.%s.cant_close" % MOD: "Этот обратный разлом закрыть нельзя.",
         "message.%s.dimension_missing" % MOD: "Разлом ведёт в никуда (%s отсутствует).",
     }
     write_json("assets/%s/lang/en_us.json" % MOD, en)

@@ -16,7 +16,6 @@ import net.minecraft.world.level.block.GrowingPlantBlock;
 import net.minecraft.world.level.block.HugeMushroomBlock;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RotatedPillarBlock;
-import net.minecraft.world.level.block.StemGrownBlock;
 import net.minecraft.world.level.block.SugarCaneBlock;
 import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -139,7 +138,8 @@ public final class MirrorPalette {
         if (b instanceof LeavesBlock || b instanceof BushBlock || b instanceof GrowingPlantBlock
                 || b instanceof VineBlock || b instanceof SugarCaneBlock || b instanceof CactusBlock
                 || b instanceof BambooStalkBlock || b instanceof BambooSaplingBlock
-                || b instanceof StemGrownBlock || b instanceof HugeMushroomBlock) {
+                || b == Blocks.PUMPKIN || b == Blocks.CARVED_PUMPKIN || b == Blocks.MELON
+                || b instanceof HugeMushroomBlock) {
             return removed(s);
         }
         // Trees keep their trunks, but turn black.

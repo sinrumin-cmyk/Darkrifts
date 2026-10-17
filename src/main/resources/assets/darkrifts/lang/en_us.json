@@ -3,8 +3,9 @@
   "item.darkrifts.rift_blade": "Rift Blade",
   "itemGroup.darkrifts": "Dark Rifts",
   "tooltip.darkrifts.rift_blade.1": "Tears rifts in the sky into the dark mirror of the world.",
-  "tooltip.darkrifts.rift_blade.2": "Hold Right Click, look up and drag your view to draw a rift.",
+  "tooltip.darkrifts.rift_blade.2": "Hold Right Click, look up and drag your view to draw a rift. Sneak + Right Click on a rift closes it.",
   "message.darkrifts.stroke_too_short": "The rift fizzles out... drag further.",
   "message.darkrifts.no_room": "There is no room for a rift here.",
+  "message.darkrifts.cant_close": "This return rift cannot be closed.",
   "message.darkrifts.dimension_missing": "The rift leads nowhere (%s is missing)."
 }

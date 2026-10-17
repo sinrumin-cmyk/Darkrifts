@@ -9,8 +9,10 @@ Locally: JDK 21, then `gradle build` -> `build/libs/darkrifts-1.0.0.jar`.
 
 ## How to play
 * **Rift Blade** recipe: 3 Echo Shards + Netherite Sword + Eye of Ender (`" E " / "ESE" / " P "`), also in the creative tab.
-* **Hold Right Click**, look at the sky and **drag your view**; release to open the rift.
+* **Hold Right Click**, look at the sky and **drag your view**: the rift tears open live along your crosshair
+  (lightning, portal particles, rising crackle); release to finish it with a shockwave.
   Rifts you draw collapse after 5 minutes (config `riftLifetimeSeconds`, 0 = permanent).
+* **Sneak + Right Click** on a rift with the blade closes the whole rift (return rifts in the mirror stay).
 * Natural rifts (ragged vertical tears) generate in the overworld; walking into one takes you to the mirror.
 * In the mirror, a permanent return rift appears next to where you arrive. "Home" is the overworld at the **same X/Z**.
 

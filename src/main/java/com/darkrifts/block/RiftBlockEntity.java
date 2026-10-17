@@ -32,6 +32,21 @@ public class RiftBlockEntity extends BlockEntity {
     public boolean isReturning() {
         return returning;
     }
+
+    /** Client-side game time when this block entity appeared (drives the opening animation). */
+    private long spawnTime = Long.MIN_VALUE;
+
+    @Override
+    public void setLevel(Level level) {
+        super.setLevel(level);
+        if (spawnTime == Long.MIN_VALUE) {
+            spawnTime = level.getGameTime();
+        }
+    }
+
+    public long getSpawnTime() {
+        return spawnTime == Long.MIN_VALUE ? 0L : spawnTime;
+    }
     /** Lazily rolls a random dark dimension for rifts that were placed without one. */
     public ResourceLocation getOrPickTarget(Level level) {
         if (target == null) {

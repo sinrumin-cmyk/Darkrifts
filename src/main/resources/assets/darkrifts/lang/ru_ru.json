@@ -3,8 +3,9 @@
   "item.darkrifts.rift_blade": "Клинок разломов",
   "itemGroup.darkrifts": "Тёмные разломы",
   "tooltip.darkrifts.rift_blade.1": "Рвёт небо, открывая путь в тёмное зеркало мира.",
-  "tooltip.darkrifts.rift_blade.2": "Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом.",
+  "tooltip.darkrifts.rift_blade.2": "Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом. Shift + ПКМ по разлому закрывает его.",
   "message.darkrifts.stroke_too_short": "Разлом угас... веди дальше.",
   "message.darkrifts.no_room": "Здесь нет места для разлома.",
+  "message.darkrifts.cant_close": "Этот обратный разлом закрыть нельзя.",
   "message.darkrifts.dimension_missing": "Разлом ведёт в никуда (%s отсутствует)."
 }

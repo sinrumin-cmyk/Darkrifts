@@ -3,10 +3,11 @@ package com.darkrifts.item;
 import com.darkrifts.Config;
 import com.darkrifts.DarkDimensions;
 import com.darkrifts.block.RiftBlock;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -14,29 +15,37 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import com.darkrifts.block.RiftBlockEntity;
+import com.darkrifts.registry.ModBlocks;
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Hold right mouse button, look at the sky and drag your view down (or in any direction):
- * the path your crosshair traces becomes a rift.
+ * the rift tears open live along the path your crosshair traces, while you are still holding.
  */
 public class RiftBladeItem extends SwordItem {
-    private static final int MIN_USE_TICKS = 6;
-    private static final double MIN_LENGTH = 3.0;
     private static final int COOLDOWN_TICKS = 40;
 
     public RiftBladeItem(Properties properties) {
@@ -56,6 +65,13 @@ public class RiftBladeItem extends SwordItem {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (player.isShiftKeyDown()) {
+            // Sneak + right click on a rift seals it.
+            if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer sp) {
+                closeRift(serverLevel, sp, stack, hand);
+            }
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        }
         if (player.getCooldowns().isOnCooldown(this)) {
             return InteractionResultHolder.fail(stack);
         }
@@ -63,81 +79,218 @@ public class RiftBladeItem extends SwordItem {
         return InteractionResultHolder.consume(stack);
     }
 
+    /** Runs every tick while the button is held: extends the line and tears the rift open along it. */
     @Override
     public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int remainingUseDuration) {
         if (!(level instanceof ServerLevel serverLevel) || !(entity instanceof ServerPlayer player)) {
             return;
         }
-        Vec3 point = RiftStroke.update(player, level.getGameTime(), Config.STROKE_RADIUS.get());
-        if (point != null) {
-            serverLevel.sendParticles(ParticleTypes.REVERSE_PORTAL, point.x, point.y, point.z, 3, 0.05, 0.05, 0.05, 0.02);
-            serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.0, 0.0, 0.0, 0.0);
+        long now = level.getGameTime();
+        RiftStroke stroke = RiftStroke.update(player, now, Config.STROKE_RADIUS.get());
+        if (stroke == null) {
+            return;
+        }
+        RandomSource random = serverLevel.getRandom();
+
+        if (!stroke.started) {
+            stroke.started = true;
+            stroke.target = DarkDimensions.random(random, serverLevel.dimension());
+            int lifetime = Config.RIFT_LIFETIME_SECONDS.get() * 20;
+            stroke.expireAt = lifetime > 0 ? now + lifetime : 0L;
+            // The sky splits: a bolt of (harmless) lightning strikes where the tear begins.
+            strike(serverLevel, stroke.lastPoint());
+            serverLevel.playSound(null, BlockPos.containing(stroke.lastPoint()),
+                    SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.7F, 1.9F);
+        }
+
+        int cap = Config.MAX_RIFT_BLOCKS.get();
+        int newBlocks = 0;
+        for (BlockPos pos : rasterize(stroke.previousPoint(), stroke.lastPoint(), random)) {
+            if (stroke.placed >= cap) {
+                break;
+            }
+            if (!stroke.cells.add(pos) || !serverLevel.isInWorldBounds(pos)) {
+                continue;
+            }
+            BlockState existing = serverLevel.getBlockState(pos);
+            if (!(existing.isAir() || existing.canBeReplaced())) {
+                continue;
+            }
+            RiftBlock.place(serverLevel, pos, stroke.target, false, stroke.expireAt);
+            stroke.placed++;
+            newBlocks++;
+            burst(serverLevel, pos, random);
+        }
+
+        if (newBlocks > 0) {
+            // Crackling that rises in pitch as the rift grows.
+            float pitch = 0.5F + Math.min(1.2F, stroke.placed / 120.0F);
+            serverLevel.playSound(null, BlockPos.containing(stroke.lastPoint()),
+                    SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.45F, pitch + random.nextFloat() * 0.2F);
+        }
+
+        // The blade wears down as the rift grows.
+        int due = stroke.placed / 12 - stroke.damaged;
+        if (due > 0) {
+            stroke.damaged += due;
+            EquipmentSlot slot = player.getUsedItemHand() == InteractionHand.MAIN_HAND
+                    ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
+            stack.hurtAndBreak(due, player, slot);
         }
     }
 
+    /** Letting go closes the stroke: a final shockwave, and a cooldown before the next rift. */
     @Override
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
         if (!(level instanceof ServerLevel serverLevel) || !(entity instanceof ServerPlayer player)) {
             return;
         }
         RiftStroke stroke = RiftStroke.finish(player);
-        int usedTicks = getUseDuration(stack, entity) - timeLeft;
-        if (stroke == null || usedTicks < MIN_USE_TICKS || stroke.length() < MIN_LENGTH) {
-            player.displayClientMessage(Component.translatable("message.darkrifts.stroke_too_short"), true);
+        if (stroke == null || stroke.size() == 0) {
             return;
         }
-
-        Set<BlockPos> cells = rasterize(stroke.points(), serverLevel.getRandom(), Config.MAX_RIFT_BLOCKS.get());
-        ResourceLocation target = DarkDimensions.random(serverLevel.getRandom(), serverLevel.dimension());
-        int lifetime = Config.RIFT_LIFETIME_SECONDS.get() * 20;
-        long expireAt = lifetime > 0 ? serverLevel.getGameTime() + lifetime : 0L;
-
-        int placed = 0;
-        for (BlockPos pos : cells) {
-            if (!serverLevel.isInWorldBounds(pos)) {
-                continue;
-            }
-            BlockState existing = serverLevel.getBlockState(pos);
-            if (existing.isAir() || existing.canBeReplaced()) {
-                RiftBlock.place(serverLevel, pos, target, false, expireAt);
-                placed++;
-            }
-        }
-
-        if (placed < 3) {
+        if (stroke.placed < 1) {
             player.displayClientMessage(Component.translatable("message.darkrifts.no_room"), true);
             return;
         }
-
-        BlockPos center = BlockPos.containing(stroke.points().get(stroke.points().size() / 2));
-        serverLevel.playSound(null, center, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 1.5F);
-        serverLevel.playSound(null, center, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 0.5F);
+        Vec3 c = stroke.center();
+        BlockPos cp = BlockPos.containing(c);
+        serverLevel.playSound(null, cp, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0F, 1.3F);
+        serverLevel.playSound(null, cp, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 0.4F);
+        shockwave(serverLevel, c, Math.min(6.0, 1.5 + stroke.placed / 20.0));
         player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
-        EquipmentSlot slot = entity.getUsedItemHand() == InteractionHand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
-        stack.hurtAndBreak(Math.max(1, placed / 12), player, slot);
     }
 
-    /** Turns the traced polyline into a set of block cells, with a bit of jitter so the tear looks ragged. */
-    private static Set<BlockPos> rasterize(List<Vec3> points, RandomSource random, int max) {
-        Set<BlockPos> cells = new LinkedHashSet<>();
-        for (int i = 1; i < points.size() && cells.size() < max; i++) {
-            Vec3 a = points.get(i - 1);
-            Vec3 b = points.get(i);
-            int steps = Math.max(1, (int) Math.ceil(a.distanceTo(b) / 0.4));
-            for (int s = 0; s <= steps; s++) {
-                Vec3 q = a.lerp(b, s / (double) steps);
-                Vec3 jittered = q.add(
-                        (random.nextDouble() - 0.5) * 0.7,
-                        (random.nextDouble() - 0.5) * 0.7,
-                        (random.nextDouble() - 0.5) * 0.7);
-                BlockPos cell = BlockPos.containing(jittered);
-                cells.add(cell);
-                if (random.nextInt(4) == 0) {
-                    cells.add(cell.relative(net.minecraft.core.Direction.getRandom(random)));
+    // ------------------------------------------------------------------ closing
+
+    /** Finds the rift the player is pointing at and removes every block connected to it. */
+    private static void closeRift(ServerLevel level, ServerPlayer player, ItemStack stack, InteractionHand hand) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 end = eye.add(player.getLookAngle().scale(8.0));
+        BlockHitResult hit = level.clip(new ClipContext(eye, end,
+                ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        BlockPos around = hit.getType() == HitResult.Type.MISS ? BlockPos.containing(end) : hit.getBlockPos();
+
+        BlockPos start = null;
+        for (BlockPos p : BlockPos.betweenClosed(around.offset(-2, -2, -2), around.offset(2, 2, 2))) {
+            if (level.getBlockState(p).is(ModBlocks.RIFT.get())) {
+                if (start == null || p.distSqr(around) < start.distSqr(around)) {
+                    start = p.immutable();
                 }
-                if (cells.size() >= max) {
-                    break;
+            }
+        }
+        if (start == null) {
+            return;
+        }
+
+        Set<BlockPos> seen = new HashSet<>();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        seen.add(start);
+        queue.add(start);
+        int closed = 0;
+        boolean keptReturn = false;
+        while (!queue.isEmpty() && seen.size() < 4000) {
+            BlockPos p = queue.poll();
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        BlockPos n = p.offset(dx, dy, dz);
+                        if (!seen.contains(n) && level.getBlockState(n).is(ModBlocks.RIFT.get())) {
+                            seen.add(n);
+                            queue.add(n);
+                        }
+                    }
                 }
+            }
+            BlockEntity be = level.getBlockEntity(p);
+            if (be instanceof RiftBlockEntity rbe && rbe.isReturning()) {
+                keptReturn = true;
+                continue;
+            }
+            level.removeBlock(p, false);
+            closed++;
+            level.sendParticles(ParticleTypes.REVERSE_PORTAL, p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5,
+                    6, 0.3, 0.3, 0.3, 0.1);
+            if (closed % 3 == 0) {
+                level.sendParticles(ParticleTypes.SMOKE, p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5,
+                        3, 0.3, 0.3, 0.3, 0.02);
+            }
+        }
+        if (closed > 0) {
+            level.playSound(null, start, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 0.5F);
+            level.playSound(null, start, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 0.6F);
+            EquipmentSlot slot = hand == InteractionHand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
+            stack.hurtAndBreak(1, player, slot);
+            player.getCooldowns().addCooldown(stack.getItem(), 10);
+        } else if (keptReturn) {
+            player.displayClientMessage(Component.translatable("message.darkrifts.cant_close"), true);
+        }
+    }
+
+    // ------------------------------------------------------------------ effects
+
+    /** Particles at a freshly opened rift cell: swirling portal dust, black ink puffs, sparks and purple glints. */
+    private static void burst(ServerLevel level, BlockPos pos, RandomSource random) {
+        double x = pos.getX() + 0.5;
+        double y = pos.getY() + 0.5;
+        double z = pos.getZ() + 0.5;
+        level.sendParticles(ParticleTypes.PORTAL, x, y, z, 10, 0.4, 0.4, 0.4, 0.9);
+        level.sendParticles(ParticleTypes.REVERSE_PORTAL, x, y, z, 5, 0.25, 0.25, 0.25, 0.06);
+        if (random.nextInt(2) == 0) {
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 4, 0.35, 0.35, 0.35, 0.25);
+        }
+        if (random.nextInt(3) == 0) {
+            level.sendParticles(ParticleTypes.WITCH, x, y, z, 3, 0.3, 0.3, 0.3, 0.1);
+            level.sendParticles(ParticleTypes.SQUID_INK, x, y, z, 2, 0.2, 0.2, 0.2, 0.03);
+        }
+    }
+
+    /** An expanding sphere of light and dust around the rift when it is finished. */
+    private static void shockwave(ServerLevel level, Vec3 c, double power) {
+        RandomSource random = level.getRandom();
+        for (int i = 0; i < 48; i++) {
+            double theta = random.nextDouble() * Math.PI * 2.0;
+            double phi = Math.acos(2.0 * random.nextDouble() - 1.0);
+            double dx = Math.sin(phi) * Math.cos(theta);
+            double dy = Math.cos(phi);
+            double dz = Math.sin(phi) * Math.sin(theta);
+            // count = 0 means "dx, dy, dz is the particle's velocity".
+            level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 0, dx, dy, dz, 0.35 * power);
+            if (i % 2 == 0) {
+                level.sendParticles(ParticleTypes.PORTAL, c.x, c.y, c.z, 0, dx, dy, dz, 0.9 * power);
+            }
+            if (i % 3 == 0) {
+                level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 0, dx, dy, dz, 0.18 * power);
+            }
+        }
+    }
+
+    /** A lightning bolt that does no damage and starts no fire - just the flash and the thunder. */
+    private static void strike(ServerLevel level, Vec3 at) {
+        LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+        if (bolt != null) {
+            bolt.moveTo(at.x, at.y, at.z);
+            bolt.setVisualOnly(true);
+            level.addFreshEntity(bolt);
+        }
+    }
+
+    // ------------------------------------------------------------------ geometry
+
+    /** Block cells along the segment a -> b, jittered a little so the tear looks ragged. */
+    private static List<BlockPos> rasterize(Vec3 a, Vec3 b, RandomSource random) {
+        List<BlockPos> cells = new ArrayList<>();
+        int steps = Math.max(1, (int) Math.ceil(a.distanceTo(b) / 0.4));
+        for (int s = 0; s <= steps; s++) {
+            Vec3 q = a.lerp(b, s / (double) steps);
+            Vec3 jittered = q.add(
+                    (random.nextDouble() - 0.5) * 0.7,
+                    (random.nextDouble() - 0.5) * 0.7,
+                    (random.nextDouble() - 0.5) * 0.7);
+            BlockPos cell = BlockPos.containing(jittered);
+            cells.add(cell);
+            if (random.nextInt(4) == 0) {
+                cells.add(cell.relative(Direction.getRandom(random)));
             }
         }
         return cells;
@@ -145,8 +298,8 @@ public class RiftBladeItem extends SwordItem {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.1").withStyle(net.minecraft.ChatFormatting.DARK_PURPLE));
-        tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.2").withStyle(net.minecraft.ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.1").withStyle(ChatFormatting.DARK_PURPLE));
+        tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.2").withStyle(ChatFormatting.GRAY));
         super.appendHoverText(stack, context, tooltip, flag);
     }
 }
