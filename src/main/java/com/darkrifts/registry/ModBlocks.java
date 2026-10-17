@@ -2,6 +2,8 @@ package com.darkrifts.registry;
 
 import com.darkrifts.DarkRifts;
 import com.darkrifts.block.RiftBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
@@ -20,6 +22,9 @@ public final class ModBlocks {
                     .lightLevel(state -> 9)
                     .pushReaction(PushReaction.BLOCK)
                     .noLootTable()));
+
+    public static final DeferredBlock<LiquidBlock> DARK_WATER = BLOCKS.register("dark_water",
+            () -> new LiquidBlock(ModFluids.SOURCE.get(), BlockBehaviour.Properties.ofFullCopy(Blocks.WATER)));
 
     private ModBlocks() {}
 }

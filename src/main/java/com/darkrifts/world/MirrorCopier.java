@@ -38,7 +38,7 @@ public final class MirrorCopier {
                         continue; // only fill empty space; never overwrite terrain
                     }
                     BlockState ruined = MirrorPalette.ruin(s, MirrorPalette.hash(p.getX(), y, p.getZ()));
-                    BlockState place = ruined == null ? s : ruined;
+                    BlockState place = MirrorPalette.darkenWater(ruined == null ? s : ruined);
                     if (!place.isAir()) {
                         mirror.setBlock(p, place, 18);
                     }

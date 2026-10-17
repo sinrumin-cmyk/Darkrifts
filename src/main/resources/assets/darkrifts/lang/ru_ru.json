@@ -7,5 +7,7 @@
   "message.darkrifts.stroke_too_short": "Разлом угас... веди дальше.",
   "message.darkrifts.no_room": "Здесь нет места для разлома.",
   "message.darkrifts.cant_close": "Этот обратный разлом закрыть нельзя.",
-  "message.darkrifts.dimension_missing": "Разлом ведёт в никуда (%s отсутствует)."
+  "message.darkrifts.dimension_missing": "Разлом ведёт в никуда (%s отсутствует).",
+  "block.darkrifts.dark_water": "Тёмная вода",
+  "item.darkrifts.dark_water_bucket": "Ведро тёмной воды"
 }

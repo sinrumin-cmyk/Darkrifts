@@ -7,5 +7,7 @@
   "message.darkrifts.stroke_too_short": "The rift fizzles out... drag further.",
   "message.darkrifts.no_room": "There is no room for a rift here.",
   "message.darkrifts.cant_close": "This return rift cannot be closed.",
-  "message.darkrifts.dimension_missing": "The rift leads nowhere (%s is missing)."
+  "message.darkrifts.dimension_missing": "The rift leads nowhere (%s is missing).",
+  "block.darkrifts.dark_water": "Dark Water",
+  "item.darkrifts.dark_water_bucket": "Dark Water Bucket"
 }

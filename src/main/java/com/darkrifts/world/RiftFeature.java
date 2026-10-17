@@ -38,23 +38,20 @@ public class RiftFeature extends Feature<NoneFeatureConfiguration> {
         int height = 5 + random.nextInt(6);
         int offset = 0;
         int placed = 0;
+        java.util.List<BlockPos> cells = new java.util.ArrayList<>();
         for (int i = 0; i < height; i++) {
             BlockPos pos = origin.above(i).relative(side, offset);
             if (level.isEmptyBlock(pos)) {
                 RiftBlock.place(level, pos, target, inMirror, 0L);
+                cells.add(pos);
                 placed++;
-                if (random.nextInt(3) == 0) {
-                    BlockPos extra = pos.relative(side, random.nextBoolean() ? 1 : -1);
-                    if (level.isEmptyBlock(extra)) {
-                        RiftBlock.place(level, extra, target, inMirror, 0L);
-                    }
-                }
             }
             if (random.nextInt(3) == 0) {
                 offset += random.nextInt(3) - 1;
                 offset = Math.max(-2, Math.min(2, offset));
             }
         }
+        RiftBlock.linkCells(level, cells, -100000L, random);
         return placed > 0;
     }
 }

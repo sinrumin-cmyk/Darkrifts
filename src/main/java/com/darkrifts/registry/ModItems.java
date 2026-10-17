@@ -3,6 +3,8 @@ package com.darkrifts.registry;
 import com.darkrifts.DarkRifts;
 import com.darkrifts.item.RiftBladeItem;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.SwordItem;
@@ -22,6 +24,9 @@ public final class ModItems {
     /** Creative / operator convenience: a single rift block that leads to a random dark dimension. */
     public static final DeferredItem<BlockItem> RIFT_BLOCK = ITEMS.register("rift",
             () -> new BlockItem(ModBlocks.RIFT.get(), new Item.Properties().rarity(Rarity.EPIC)));
+
+    public static final DeferredItem<BucketItem> DARK_WATER_BUCKET = ITEMS.register("dark_water_bucket",
+            () -> new BucketItem(ModFluids.SOURCE.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
 
     private ModItems() {}
 }

@@ -204,14 +204,7 @@ public final class RiftTeleporter {
         level.getChunk(base.getX() >> 4, base.getZ() >> 4);
 
         if (!hasRiftNearby(level, base)) {
-            for (int i = 0; i < 4; i++) {
-                BlockPos p = base.above(i);
-                BlockState existing = level.getBlockState(p);
-                if (existing.getDestroySpeed(level, p) < 0) {
-                    continue; // bedrock etc.
-                }
-                RiftBlock.place(level, p, null, true, 0L);
-            }
+            RiftBlock.placeColumn(level, base, 5, null, true, 0L, -100000L, random);
             // Ground the rift so it doesn't float over a hole.
             BlockPos under = base.below();
             if (level.getBlockState(under).canBeReplaced()) {

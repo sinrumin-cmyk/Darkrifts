@@ -1,7 +1,6 @@
 package com.darkrifts.client;
 
 import com.darkrifts.block.RiftBlockEntity;
-import com.darkrifts.registry.ModBlocks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -15,19 +14,32 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Thaumcraft-style flux rift: instead of cubes, every rift block draws one jagged, spiky "shard" that always
- * faces the camera and is stretched along the direction of the crack. Overlapping shards of neighbouring
- * blocks merge into a ragged tear.
+ * Draws a rift as ONE thin, ragged ribbon (a crack in reality) instead of a clump of shards.
  *
- * Each shard has three layers (back to front): a faint violet halo, a bright violet-white rim, and a dark core
- * rendered with the End-portal shader (a window into the void). The layers are pushed slightly apart along the
- * view direction so they never z-fight.
+ * Every rift cell owns a few pieces of the line (stored in the block entity). Each piece is subdivided into a
+ * jagged polyline and drawn as a camera-facing strip with three layers: a faint violet halo, a bright violet-white
+ * rim and a dark core rendered with the End-portal shader (a window into the void).
+ *
+ * Opening animation (first ~1.5 s of every piece): the line zips open from its start point, a wide white-violet
+ * flash collapses onto it, and thin cracks spread outwards from the tear and fade out.
  */
 public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
-    private static final int RING = 14; // vertices around a shard
+    private static final int SUB = 5; // sub-segments per piece
 
     public RiftRenderer(BlockEntityRendererProvider.Context context) {}
+
+    /** A fully computed strip, ready to be emitted in the glow and core passes. */
+    private static final class Strip {
+        Vec3[] p;
+        float[] w;
+        float flash;
+        float fade = 1.0F;
+        boolean crack;
+    }
 
     @Override
     public void render(RiftBlockEntity be, float partialTick, PoseStack poseStack,
@@ -36,130 +48,156 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         if (level == null) {
             return;
         }
-        BlockPos pos = be.getBlockPos();
+        BlockPos origin = be.getBlockPos();
         Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         Matrix4f pose = poseStack.last().pose();
         float time = level.getGameTime() + partialTick;
 
-        long h = hash(pos.asLong());
-        Vec3 c = node(pos, h, time);
-
-        // Direction of the crack = averaged direction to linked neighbours (sign-agnostic).
-        Vec3 axis = null;
-        int links = 0;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    int dist = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
-                    if (dist == 0 || dist == 3) {
-                        continue;
-                    }
-                    BlockPos np = pos.offset(dx, dy, dz);
-                    if (!level.getBlockState(np).is(ModBlocks.RIFT.get())) {
-                        continue;
-                    }
-                    links++;
-                    Vec3 d = node(np, hash(np.asLong()), time).subtract(c);
-                    if (d.lengthSqr() < 1.0E-6) {
-                        continue;
-                    }
-                    d = d.normalize();
-                    axis = axis == null ? d : axis.add(d.dot(axis) < 0 ? d.scale(-1) : d);
-                }
-            }
+        List<double[]> segs = be.getSegments();
+        if (segs.isEmpty()) {
+            // Rift without stored line (older saves): a short vertical piece through the cell.
+            double cx = origin.getX() + 0.5;
+            double cy = origin.getY() + 0.5;
+            double cz = origin.getZ() + 0.5;
+            segs = List.of(new double[]{cx, cy - 0.55, cz, cx, cy + 0.55, cz, be.getSpawnTime()});
         }
-        if (axis == null || axis.lengthSqr() < 1.0E-6) {
-            axis = new Vec3(rand(h, 0) - 0.5, rand(h, 8) - 0.2, rand(h, 16) - 0.5);
-            if (axis.lengthSqr() < 1.0E-6) {
-                axis = new Vec3(0, 1, 0);
-            }
-        }
-        axis = axis.normalize();
 
-        // Camera-facing basis: f toward camera, u along the crack (projected), v perpendicular.
-        Vec3 f = cam.subtract(c);
-        if (f.lengthSqr() < 1.0E-6) {
+        List<Strip> strips = new ArrayList<>();
+        for (double[] s : segs) {
+            build(strips, s, time);
+        }
+        if (strips.isEmpty()) {
             return;
         }
-        f = f.normalize();
-        Vec3 u = axis.subtract(f.scale(axis.dot(f)));
-        if (u.lengthSqr() < 1.0E-4) {
-            u = f.cross(new Vec3(0, 1, 0));
-            if (u.lengthSqr() < 1.0E-4) {
-                u = f.cross(new Vec3(1, 0, 0));
-            }
-        }
-        u = u.normalize();
-        Vec3 v = f.cross(u).normalize();
 
-        // Opening animation: the shard stretches out with a little overshoot, and flashes white-violet.
-        float age = Math.max(0.0F, time - be.getSpawnTime());
-        float t = Math.min(1.0F, age / 10.0F);
-        float grow = t >= 1.0F ? 1.0F : 1.0F + 2.7F * (t - 1.0F) * (t - 1.0F) * (t - 1.0F) + 1.7F * (t - 1.0F) * (t - 1.0F);
-        grow = Mth.clamp(grow, 0.0F, 1.25F);
-        float flash = Math.max(0.0F, 1.0F - age / 14.0F);
-        float widthGrow = 1.0F + flash * 1.4F;
-
-        float pulse = 1.0F + 0.12F * (float) Math.sin(time * 0.13 + rand(h, 24) * 6.28);
-        float halfLen = (links <= 1 ? 0.6F : 0.95F) * (0.85F + 0.3F * rand(h, 32)) * pulse * grow;
-        float halfWid = (0.17F + 0.12F * rand(h, 40)) * pulse * Math.min(1.0F, 0.3F + grow) * widthGrow;
-
-        VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
+        // Pass 1: glow layers (additive "lightning" type). Never hold two buffers at once.
         VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
-
-        shard(core, glow, pose, pos, c, f, u, v, halfLen, halfWid, h, time, flash);
-        // A short spike across the crack, slowly turning - gives the star-burst look.
-        shard(core, glow, pose, pos, c, f, v, u.scale(-1), halfLen * 0.42F, halfWid * 0.8F, hash(h), time, flash);
-        if (flash > 0.0F) {
-            // Extra long flare while opening.
-            shard(core, glow, pose, pos, c, f, u, v, halfLen * (1.0F + flash * 1.6F), halfWid * 0.35F, hash(h + 7), time, flash);
-        }
-    }
-
-    private static void shard(VertexConsumer core, VertexConsumer glow, Matrix4f pose, BlockPos origin,
-                              Vec3 c, Vec3 f, Vec3 u, Vec3 v, float halfLen, float halfWid, long h, float time,
-                              float flash) {
-        // Irregular radii; the two tips (i = 0 and RING/2) stay at full length.
-        float[] r = new float[RING];
-        for (int i = 0; i < RING; i++) {
-            float jag = 0.45F + 0.55F * rand(h, (i * 5) % 56);
-            if (i % 2 == 0) {
-                jag = Math.min(1.0F, jag + 0.25F);
+        for (Strip st : strips) {
+            if (st.crack) {
+                int a = (int) (200 * st.fade);
+                strip(glow, pose, origin, st.p, st.w, cam, 1.0F, 0.0F, 235, 190, 255, a, 0.012);
+                strip(glow, pose, origin, st.p, st.w, cam, 3.0F, 0.01F, 130, 60, 255, (int) (70 * st.fade), 0.02);
+                continue;
             }
-            jag *= 1.0F + 0.10F * (float) Math.sin(time * 0.2 + i * 1.7);
-            r[i] = (i == 0 || i == RING / 2) ? 1.0F : jag;
+            int haloA = Math.min(255, 40 + (int) (st.flash * 150));
+            int rimA = Math.min(255, 150 + (int) (st.flash * 105));
+            int rimG = Math.min(255, 150 + (int) (st.flash * 105));
+            strip(glow, pose, origin, st.p, st.w, cam, 4.2F + st.flash * 3.0F, 0.06F, 105, 35, 235, haloA, 0.03);
+            strip(glow, pose, origin, st.p, st.w, cam, 1.9F + st.flash * 1.5F, 0.02F, 225, rimG, 255, rimA, 0.015);
         }
-
-        // layer: scale, push-away, colour (r = -1 means position only / portal shader)
-        int haloA = Math.min(255, 42 + (int) (flash * 150));
-        int rimA = Math.min(255, 120 + (int) (flash * 135));
-        int rimG = Math.min(255, 170 + (int) (flash * 85));
-        fan(glow, pose, origin, c.subtract(f.scale(0.030)), u, v, halfLen * 1.75F, halfWid * 2.2F, r, 110, 40, 230, haloA);
-        fan(glow, pose, origin, c.subtract(f.scale(0.015)), u, v, halfLen * 1.25F, halfWid * 1.45F, r, 225, rimG, 255, rimA);
-        fan(core, pose, origin, c, u, v, halfLen, halfWid, r, -1, 0, 0, 0);
+        // Pass 2: the void core.
+        VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
+        for (Strip st : strips) {
+            if (!st.crack) {
+                strip(core, pose, origin, st.p, st.w, cam, 1.0F, 0.0F, -1, 0, 0, 0, 0.0);
+            }
+        }
     }
 
-    /** Emits a double-sided triangle fan (as degenerate quads) around the centre. */
-    private static void fan(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3 c, Vec3 u, Vec3 v,
-                            float halfLen, float halfWid, float[] r, int red, int green, int blue, int alpha) {
-        Vec3[] p = new Vec3[RING];
-        for (int i = 0; i < RING; i++) {
-            double ang = i * (Math.PI * 2.0 / RING);
-            p[i] = c.add(u.scale(Math.cos(ang) * halfLen * r[i])).add(v.scale(Math.sin(ang) * halfWid * r[i]));
+    /** Computes the strips (main line + opening cracks) for one stored piece of the line. */
+    private static void build(List<Strip> out, double[] s, float time) {
+        Vec3 a = new Vec3(s[0], s[1], s[2]);
+        Vec3 b = new Vec3(s[3], s[4], s[5]);
+        float age = Math.max(0.0F, time - (float) s[6]);
+        long h = hash(Double.doubleToLongBits(s[0]) * 31L + Double.doubleToLongBits(s[2]) + (long) (s[1] * 977.0));
+
+        // The line zips open: 0 -> 1 over ~5 ticks, with a slight overshoot-free ease-out.
+        float t = Mth.clamp(age / 5.0F, 0.0F, 1.0F);
+        float prog = 1.0F - (1.0F - t) * (1.0F - t);
+        Vec3 end = a.lerp(b, prog);
+        Vec3 dir = b.subtract(a);
+        if (dir.lengthSqr() < 1.0E-6) {
+            return;
         }
-        for (int i = 0; i < RING; i++) {
-            Vec3 a = p[i];
-            Vec3 b = p[(i + 1) % RING];
-            vertex(vc, pose, origin, c, red, green, blue, alpha);
-            vertex(vc, pose, origin, a, red, green, blue, alpha);
-            vertex(vc, pose, origin, b, red, green, blue, alpha);
-            vertex(vc, pose, origin, c, red, green, blue, alpha);
-            // reverse winding so culling never hides it
-            vertex(vc, pose, origin, c, red, green, blue, alpha);
-            vertex(vc, pose, origin, b, red, green, blue, alpha);
-            vertex(vc, pose, origin, a, red, green, blue, alpha);
-            vertex(vc, pose, origin, c, red, green, blue, alpha);
+        Vec3 d = dir.normalize();
+        Vec3 u1 = d.cross(Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+        Vec3 u2 = d.cross(u1).normalize();
+
+        float flash = Math.max(0.0F, 1.0F - age / 20.0F);
+        float settle = Mth.clamp(age / 12.0F, 0.0F, 1.0F);
+        float amp = 0.08F * (1.0F + flash * 1.2F);
+
+        Strip main = new Strip();
+        main.p = new Vec3[SUB + 1];
+        main.w = new float[SUB + 1];
+        main.flash = flash;
+        for (int i = 0; i <= SUB; i++) {
+            Vec3 q = a.lerp(end, i / (double) SUB);
+            if (i > 0 && i < SUB) {
+                double j1 = (rand(h, i * 8) - 0.5) * 2.0 * amp;
+                double j2 = (rand(h, i * 8 + 4) - 0.5) * 2.0 * amp;
+                double flick = 1.0 + 0.2 * Math.sin(time * 0.35 + i * 1.9 + rand(h, 5) * 6.28);
+                q = q.add(u1.scale(j1 * flick)).add(u2.scale(j2 * flick));
+            }
+            main.p[i] = q;
+            // Width is a smooth function of world position, so neighbouring pieces join without steps.
+            double n = 0.5 + 0.5 * Math.sin(q.x * 3.1 + q.y * 2.3 + q.z * 1.7)
+                    * Math.sin(q.x * 1.3 - q.y * 1.1 + q.z * 2.9 + 1.0);
+            float pulse = 1.0F + 0.10F * (float) Math.sin(time * 0.18 + q.y * 1.5);
+            main.w[i] = (0.035F + 0.05F * (float) n) * pulse * (0.3F + 0.7F * settle) * (1.0F + flash * 0.8F);
         }
+        out.add(main);
+
+        // Reality cracking: thin cracks spread from the middle of the piece for the first ~1.5 s.
+        if (age < 30.0F) {
+            Vec3 mid = a.lerp(end, 0.5);
+            float spread = Mth.clamp(age / 10.0F, 0.0F, 1.0F);
+            spread = 1.0F - (1.0F - spread) * (1.0F - spread);
+            float fade = Mth.clamp(1.0F - (age - 8.0F) / 22.0F, 0.0F, 1.0F);
+            int count = 2 + (int) (rand(h, 40) * 2.0F);
+            for (int k = 0; k < count; k++) {
+                double ang = rand(h, 48 + k * 3) * Math.PI * 2.0;
+                double len = (0.35 + 0.65 * rand(h, 16 + k * 6)) * spread;
+                Vec3 side = u1.scale(Math.cos(ang)).add(u2.scale(Math.sin(ang)));
+                Strip c = new Strip();
+                c.crack = true;
+                c.fade = fade;
+                c.p = new Vec3[]{mid, mid.add(side.scale(len * 0.5)).add(d.scale((rand(h, 24 + k) - 0.5) * 0.2)),
+                        mid.add(side.scale(len))};
+                c.w = new float[]{0.03F, 0.016F, 0.0F};
+                out.add(c);
+            }
+        }
+    }
+
+    /** Emits a camera-facing strip along the polyline p; layers are pushed away from the camera by {@code push}. */
+    private static void strip(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3[] p, float[] w, Vec3 cam,
+                              float scale, float add, int r, int g, int b, int a, double push) {
+        int n = p.length;
+        Vec3[] left = new Vec3[n];
+        Vec3[] right = new Vec3[n];
+        for (int i = 0; i < n; i++) {
+            Vec3 toCam = cam.subtract(p[i]);
+            double dist = toCam.length();
+            if (dist < 1.0E-4) {
+                return;
+            }
+            toCam = toCam.scale(1.0 / dist);
+            Vec3 t = p[Math.min(n - 1, i + 1)].subtract(p[Math.max(0, i - 1)]);
+            Vec3 side = t.cross(toCam);
+            if (side.lengthSqr() < 1.0E-8) {
+                side = new Vec3(0, 1, 0).cross(toCam);
+                if (side.lengthSqr() < 1.0E-8) {
+                    side = new Vec3(1, 0, 0);
+                }
+            }
+            side = side.normalize().scale(w[i] * scale + add);
+            Vec3 c = p[i].subtract(toCam.scale(push));
+            left[i] = c.add(side);
+            right[i] = c.subtract(side);
+        }
+        for (int i = 0; i < n - 1; i++) {
+            quad(vc, pose, origin, left[i], right[i], right[i + 1], left[i + 1], r, g, b, a);
+            quad(vc, pose, origin, left[i + 1], right[i + 1], right[i], left[i], r, g, b, a); // back face
+        }
+    }
+
+    private static void quad(VertexConsumer vc, Matrix4f pose, BlockPos o, Vec3 v1, Vec3 v2, Vec3 v3, Vec3 v4,
+                             int r, int g, int b, int a) {
+        vertex(vc, pose, o, v1, r, g, b, a);
+        vertex(vc, pose, o, v2, r, g, b, a);
+        vertex(vc, pose, o, v3, r, g, b, a);
+        vertex(vc, pose, o, v4, r, g, b, a);
     }
 
     private static void vertex(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3 p,
@@ -167,17 +205,8 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         VertexConsumer v = vc.addVertex(pose,
                 (float) (p.x - origin.getX()), (float) (p.y - origin.getY()), (float) (p.z - origin.getZ()));
         if (r >= 0) {
-            v.setColor(r, g, b, a);
+            v.setColor(r, g, b, Mth.clamp(a, 0, 255));
         }
-    }
-
-    /** World-space node of a rift cell: cell centre + stable jitter + slow wobble. */
-    private static Vec3 node(BlockPos p, long h, float time) {
-        double wob = time * 0.07;
-        return new Vec3(
-                p.getX() + 0.5 + (rand(h, 0) - 0.5) * 0.6 + Math.sin(wob + rand(h, 8) * 6.28) * 0.04,
-                p.getY() + 0.5 + (rand(h, 16) - 0.5) * 0.6 + Math.sin(wob * 1.3 + rand(h, 24) * 6.28) * 0.04,
-                p.getZ() + 0.5 + (rand(h, 32) - 0.5) * 0.6 + Math.sin(wob * 0.9 + rand(h, 40) * 6.28) * 0.04);
     }
 
     private static long hash(long v) {
@@ -188,16 +217,8 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         return v;
     }
 
-    /** 0..1 value taken from 8 bits of the hash starting at the given bit offset. */
-    private static float rand(long h, int shift) {
-        return ((h >>> shift) & 0xFF) / 255.0F;
-    }
-
-    /**
-     * The shards stretch into neighbouring cells, so don't cull this renderer too early.
-     * (Deliberately no @Override: if a NeoForge version names this differently it is simply unused.)
-     */
-    public net.minecraft.world.phys.AABB getRenderBoundingBox(RiftBlockEntity be) {
-        return new net.minecraft.world.phys.AABB(be.getBlockPos()).inflate(1.5);
+    /** Stable pseudo-random value 0..1 for (hash, k). */
+    private static float rand(long h, int k) {
+        return ((hash(h + k * 0x632BE59BD9B4E019L) >>> 24) & 0xFF) / 255.0F;
     }
 }

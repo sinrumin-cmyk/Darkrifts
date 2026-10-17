@@ -89,8 +89,10 @@ public final class MirrorPalette {
                     if (n == null) {
                         n = ruin(s, h);
                     }
-                    if (n != null && n != s) {
-                        level.setBlock(p, n, 2);
+                    // Every drop of water becomes dark water.
+                    BlockState result = darkenWater(n != null ? n : s);
+                    if (result != s) {
+                        level.setBlock(p, result, 2);
                     }
                 }
             }
@@ -98,6 +100,16 @@ public final class MirrorPalette {
     }
 
     // ------------------------------------------------------------------ block rules
+
+    /** Vanilla water (source or flowing) -> dark water with the same level; everything else is returned as is. */
+    public static BlockState darkenWater(BlockState s) {
+        if (s.is(Blocks.WATER)) {
+            return ModBlocks.DARK_WATER.get().defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.LiquidBlock.LEVEL,
+                            s.getValue(net.minecraft.world.level.block.LiquidBlock.LEVEL));
+        }
+        return s;
+    }
 
     /** Natural blocks -> dark stone / dead nature. Returns null if the block is left alone. */
     @Nullable

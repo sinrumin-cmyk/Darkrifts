@@ -3,6 +3,7 @@ package com.darkrifts.item;
 import com.darkrifts.Config;
 import com.darkrifts.DarkDimensions;
 import com.darkrifts.block.RiftBlock;
+import com.darkrifts.world.RiftWaves;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -99,27 +100,50 @@ public class RiftBladeItem extends SwordItem {
             stroke.expireAt = lifetime > 0 ? now + lifetime : 0L;
             // The sky splits: a bolt of (harmless) lightning strikes where the tear begins.
             strike(serverLevel, stroke.lastPoint());
+            serverLevel.sendParticles(ParticleTypes.FLASH, stroke.lastPoint().x, stroke.lastPoint().y,
+                    stroke.lastPoint().z, 1, 0, 0, 0, 0);
             serverLevel.playSound(null, BlockPos.containing(stroke.lastPoint()),
                     SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.7F, 1.9F);
         }
 
         int cap = Config.MAX_RIFT_BLOCKS.get();
         int newBlocks = 0;
-        for (BlockPos pos : rasterize(stroke.previousPoint(), stroke.lastPoint(), random)) {
-            if (stroke.placed >= cap) {
-                break;
+        Vec3 from = stroke.previousPoint();
+        Vec3 to = stroke.lastPoint();
+        double len = from.distanceTo(to);
+        if (len > 0.04) {
+            // Split long moves into short pieces so every piece is owned by a cell right next to it.
+            int pieces = Math.max(1, (int) Math.ceil(len / 1.1));
+            for (int i = 0; i < pieces; i++) {
+                Vec3 a = from.lerp(to, i / (double) pieces);
+                Vec3 b = from.lerp(to, (i + 1) / (double) pieces);
+                BlockPos owner = null;
+                for (BlockPos pos : line(a, b)) {
+                    if (!serverLevel.isInWorldBounds(pos)) {
+                        continue;
+                    }
+                    BlockState existing = serverLevel.getBlockState(pos);
+                    if (existing.is(ModBlocks.RIFT.get())) {
+                        if (owner == null) {
+                            owner = pos;
+                        }
+                        continue;
+                    }
+                    if (stroke.placed >= cap || !(existing.isAir() || existing.canBeReplaced())) {
+                        continue;
+                    }
+                    RiftBlock.place(serverLevel, pos, stroke.target, false, stroke.expireAt);
+                    stroke.placed++;
+                    newBlocks++;
+                    burst(serverLevel, pos, random);
+                    if (owner == null) {
+                        owner = pos;
+                    }
+                }
+                if (owner != null) {
+                    RiftBlock.addSegment(serverLevel, owner, a, b, now);
+                }
             }
-            if (!stroke.cells.add(pos) || !serverLevel.isInWorldBounds(pos)) {
-                continue;
-            }
-            BlockState existing = serverLevel.getBlockState(pos);
-            if (!(existing.isAir() || existing.canBeReplaced())) {
-                continue;
-            }
-            RiftBlock.place(serverLevel, pos, stroke.target, false, stroke.expireAt);
-            stroke.placed++;
-            newBlocks++;
-            burst(serverLevel, pos, random);
         }
 
         if (newBlocks > 0) {
@@ -234,33 +258,27 @@ public class RiftBladeItem extends SwordItem {
         double x = pos.getX() + 0.5;
         double y = pos.getY() + 0.5;
         double z = pos.getZ() + 0.5;
-        level.sendParticles(ParticleTypes.PORTAL, x, y, z, 10, 0.4, 0.4, 0.4, 0.9);
-        level.sendParticles(ParticleTypes.REVERSE_PORTAL, x, y, z, 5, 0.25, 0.25, 0.25, 0.06);
-        if (random.nextInt(2) == 0) {
-            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 4, 0.35, 0.35, 0.35, 0.25);
-        }
+        level.sendParticles(ParticleTypes.PORTAL, x, y, z, 6, 0.3, 0.3, 0.3, 0.8);
+        level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+                new org.joml.Vector3f(0.7F, 0.25F, 1.0F), 1.0F), x, y, z, 3, 0.2, 0.2, 0.2, 0.0);
         if (random.nextInt(3) == 0) {
-            level.sendParticles(ParticleTypes.WITCH, x, y, z, 3, 0.3, 0.3, 0.3, 0.1);
-            level.sendParticles(ParticleTypes.SQUID_INK, x, y, z, 2, 0.2, 0.2, 0.2, 0.03);
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 3, 0.3, 0.3, 0.3, 0.25);
         }
     }
 
-    /** An expanding sphere of light and dust around the rift when it is finished. */
+    /** The violet wave that rolls out of the finished rift, plus a burst of light along its centre. */
     private static void shockwave(ServerLevel level, Vec3 c, double power) {
+        RiftWaves.start(level, c, 4.0 + power * 1.6);
         RandomSource random = level.getRandom();
-        for (int i = 0; i < 48; i++) {
+        for (int i = 0; i < 28; i++) {
             double theta = random.nextDouble() * Math.PI * 2.0;
             double phi = Math.acos(2.0 * random.nextDouble() - 1.0);
             double dx = Math.sin(phi) * Math.cos(theta);
             double dy = Math.cos(phi);
             double dz = Math.sin(phi) * Math.sin(theta);
-            // count = 0 means "dx, dy, dz is the particle's velocity".
-            level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 0, dx, dy, dz, 0.35 * power);
+            level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 0, dx, dy, dz, 0.3 * power);
             if (i % 2 == 0) {
                 level.sendParticles(ParticleTypes.PORTAL, c.x, c.y, c.z, 0, dx, dy, dz, 0.9 * power);
-            }
-            if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 0, dx, dy, dz, 0.18 * power);
             }
         }
     }
@@ -277,20 +295,16 @@ public class RiftBladeItem extends SwordItem {
 
     // ------------------------------------------------------------------ geometry
 
-    /** Block cells along the segment a -> b, jittered a little so the tear looks ragged. */
-    private static List<BlockPos> rasterize(Vec3 a, Vec3 b, RandomSource random) {
+    /** Block cells touched by the straight segment a -> b (no jitter: the tear is a single clean line). */
+    private static List<BlockPos> line(Vec3 a, Vec3 b) {
         List<BlockPos> cells = new ArrayList<>();
-        int steps = Math.max(1, (int) Math.ceil(a.distanceTo(b) / 0.4));
+        int steps = Math.max(1, (int) Math.ceil(a.distanceTo(b) / 0.25));
+        BlockPos last = null;
         for (int s = 0; s <= steps; s++) {
-            Vec3 q = a.lerp(b, s / (double) steps);
-            Vec3 jittered = q.add(
-                    (random.nextDouble() - 0.5) * 0.7,
-                    (random.nextDouble() - 0.5) * 0.7,
-                    (random.nextDouble() - 0.5) * 0.7);
-            BlockPos cell = BlockPos.containing(jittered);
-            cells.add(cell);
-            if (random.nextInt(4) == 0) {
-                cells.add(cell.relative(Direction.getRandom(random)));
+            BlockPos cell = BlockPos.containing(a.lerp(b, s / (double) steps));
+            if (!cell.equals(last)) {
+                cells.add(cell);
+                last = cell;
             }
         }
         return cells;

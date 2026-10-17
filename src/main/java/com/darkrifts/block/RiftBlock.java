@@ -50,6 +50,57 @@ public class RiftBlock extends BaseEntityBlock {
         }
     }
 
+    /**
+     * Joins already placed rift cells (in order) with one continuous, slightly ragged line.
+     * Used by commands, natural rifts and return rifts; the Rift Blade draws its own line live.
+     */
+    public static void linkCells(LevelAccessor level, java.util.List<BlockPos> cells, long birth, RandomSource random) {
+        int n = cells.size();
+        if (n == 0) {
+            return;
+        }
+        net.minecraft.world.phys.Vec3[] c = new net.minecraft.world.phys.Vec3[n];
+        for (int i = 0; i < n; i++) {
+            BlockPos q = cells.get(i);
+            c[i] = new net.minecraft.world.phys.Vec3(
+                    q.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.4,
+                    q.getY() + 0.5,
+                    q.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.4);
+        }
+        net.minecraft.world.phys.Vec3 dir = n > 1 ? c[n - 1].subtract(c[0]).normalize()
+                : new net.minecraft.world.phys.Vec3(0, 1, 0);
+        net.minecraft.world.phys.Vec3 start = c[0].subtract(dir.scale(0.55));
+        net.minecraft.world.phys.Vec3 end = c[n - 1].add(dir.scale(0.55));
+        addSegment(level, cells.get(0), start, c[0], birth);
+        for (int i = 1; i < n; i++) {
+            addSegment(level, cells.get(i - 1), c[i - 1], c[i], birth);
+        }
+        addSegment(level, cells.get(n - 1), c[n - 1], end, birth);
+    }
+
+    /** A permanent vertical tear: {@code height} cells going up from {@code base}. */
+    public static void placeColumn(LevelAccessor level, BlockPos base, int height, @Nullable ResourceLocation target,
+                                   boolean returning, long expireAt, long birth, RandomSource random) {
+        java.util.List<BlockPos> cells = new java.util.ArrayList<>();
+        for (int i = 0; i < height; i++) {
+            BlockPos p = base.above(i);
+            if (level.getBlockState(p).getDestroySpeed(level, p) < 0) {
+                continue;
+            }
+            place(level, p, target, returning, expireAt);
+            cells.add(p);
+        }
+        linkCells(level, cells, birth, random);
+    }
+
+    /** Stores a piece of the visible tear line in the rift block at {@code pos}. */
+    public static void addSegment(LevelAccessor level, BlockPos pos, net.minecraft.world.phys.Vec3 a,
+                                  net.minecraft.world.phys.Vec3 b, long birth) {
+        if (level.getBlockEntity(pos) instanceof RiftBlockEntity rift) {
+            rift.addSegment(a.x, a.y, a.z, b.x, b.y, b.z, birth);
+        }
+    }
+
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         // The visible crack is drawn by RiftRenderer (block entity renderer), not by a block model.
@@ -125,11 +176,15 @@ public class RiftBlock extends BaseEntityBlock {
             level.addParticle(ParticleTypes.REVERSE_PORTAL, x, y, z,
                     (random.nextDouble() - 0.5) * 0.1, (random.nextDouble() - 0.5) * 0.1, (random.nextDouble() - 0.5) * 0.1);
         }
-        if (random.nextInt(8) == 0) {
+        if (random.nextInt(10) == 0) {
             level.addParticle(ParticleTypes.SQUID_INK, x, y, z, 0.0, 0.01, 0.0);
         }
-        if (random.nextInt(24) == 0) {
+        if (random.nextInt(12) == 0) {
             level.addParticle(ParticleTypes.ELECTRIC_SPARK, x, y, z, 0.0, 0.0, 0.0);
+        }
+        if (random.nextInt(16) == 0) {
+            level.addParticle(new net.minecraft.core.particles.DustParticleOptions(
+                    new org.joml.Vector3f(0.6F, 0.2F, 1.0F), 0.8F), x, y, z, 0.0, 0.0, 0.0);
         }
     }
 }

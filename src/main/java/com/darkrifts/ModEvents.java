@@ -4,6 +4,13 @@ import com.darkrifts.block.RiftBlock;
 import com.darkrifts.item.RiftStroke;
 import com.darkrifts.world.MirrorCopier;
 import com.darkrifts.world.RiftTeleporter;
+import com.darkrifts.world.RiftWaves;
+import net.minecraft.server.TickTask;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -30,6 +37,44 @@ public final class ModEvents {
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         RiftStroke.clearAll();
+        RiftWaves.clear();
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        RiftWaves.tick();
+    }
+
+    /**
+     * No mobs on top of the (ruined) structures of the mirror: villagers, golems, pillagers, witches and
+     * everything else that structures normally spawn.
+     */
+    @SubscribeEvent
+    public static void onFinalizeSpawn(FinalizeSpawnEvent event) {
+        if (!(event.getLevel().getLevel() instanceof ServerLevel level) || !DarkDimensions.isDark(level.dimension())) {
+            return;
+        }
+        MobSpawnType type = event.getSpawnType();
+        if (type == MobSpawnType.STRUCTURE) {
+            event.setSpawnCancelled(true);
+        } else if (type == MobSpawnType.NATURAL
+                && !level.structureManager().getAllStructuresAt(BlockPos.containing(event.getX(), event.getY(), event.getZ())).isEmpty()) {
+            event.setSpawnCancelled(true);
+        }
+    }
+
+    /** Removes mobs that structure generation already placed into a fresh mirror chunk. */
+    private static void purgeStructureMobs(ServerLevel level, ChunkPos cp) {
+        if (level.structureManager().getAllStructuresAt(cp.getMiddleBlockPosition(64)).isEmpty()) {
+            return;
+        }
+        AABB box = new AABB(cp.getMinBlockX(), level.getMinBuildHeight(), cp.getMinBlockZ(),
+                cp.getMaxBlockX() + 1, level.getMaxBuildHeight(), cp.getMaxBlockZ() + 1);
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, box)) {
+            if (!mob.isPersistenceRequired() && !mob.hasCustomName()) {
+                mob.discard();
+            }
+        }
     }
 
     /** A brand-new chunk of the mirror: copy (ruined) player builds from the overworld chunk, if it is loaded. */
@@ -43,6 +88,10 @@ public final class ModEvents {
         }
         ChunkPos pos = event.getChunk().getPos();
         level.getServer().execute(() -> MirrorCopier.copy(level, pos));
+        // Structure mobs appear a moment after the chunk does, so look again a bit later (twice).
+        var server = level.getServer();
+        server.tell(new TickTask(server.getTickCount() + 10, () -> purgeStructureMobs(level, pos)));
+        server.tell(new TickTask(server.getTickCount() + 100, () -> purgeStructureMobs(level, pos)));
     }
 
     @SubscribeEvent
@@ -55,9 +104,7 @@ public final class ModEvents {
                     ServerLevel level = player.serverLevel();
                     ResourceLocation target = DarkDimensions.random(level.getRandom(), level.dimension());
                     BlockPos base = player.blockPosition().relative(player.getDirection(), 3);
-                    for (int i = 0; i < 4; i++) {
-                        RiftBlock.place(level, base.above(i), target, false, 0L);
-                    }
+                    RiftBlock.placeColumn(level, base, 5, target, false, 0L, level.getGameTime(), level.getRandom());
                     ctx.getSource().sendSuccess(() -> Component.literal("Opened a rift to the mirror realm"), false);
                     return 1;
                 }))

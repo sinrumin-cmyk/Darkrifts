@@ -5,18 +5,35 @@ import com.darkrifts.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.DoubleTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * One cell of a rift. Besides the teleport target it stores the pieces of the single tear line that "belong" to
+ * this cell: each piece is {ax, ay, az, bx, by, bz, birthGameTime}. The renderer draws them as one thin ragged ribbon.
+ */
 public class RiftBlockEntity extends BlockEntity {
+    private static final int MAX_SEGMENTS = 14;
+
     @Nullable
     private ResourceLocation target;
     private boolean returning;
     /** Game time at which the rift collapses; 0 = permanent. */
     private long expireAt;
+    private final List<double[]> segments = new ArrayList<>();
 
     public RiftBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RIFT.get(), pos, state);
@@ -33,7 +50,23 @@ public class RiftBlockEntity extends BlockEntity {
         return returning;
     }
 
-    /** Client-side game time when this block entity appeared (drives the opening animation). */
+    public List<double[]> getSegments() {
+        return segments;
+    }
+
+    /** Adds a piece of the tear line to this cell and syncs it to clients. */
+    public void addSegment(double ax, double ay, double az, double bx, double by, double bz, long birth) {
+        if (segments.size() >= MAX_SEGMENTS) {
+            segments.remove(0);
+        }
+        segments.add(new double[]{ax, ay, az, bx, by, bz, (double) birth});
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    /** Client-side game time when this block entity appeared (used when a rift has no stored segments). */
     private long spawnTime = Long.MIN_VALUE;
 
     @Override
@@ -47,6 +80,7 @@ public class RiftBlockEntity extends BlockEntity {
     public long getSpawnTime() {
         return spawnTime == Long.MIN_VALUE ? 0L : spawnTime;
     }
+
     /** Lazily rolls a random dark dimension for rifts that were placed without one. */
     public ResourceLocation getOrPickTarget(Level level) {
         if (target == null) {
@@ -62,6 +96,13 @@ public class RiftBlockEntity extends BlockEntity {
         }
     }
 
+    /** The tear can stretch a couple of blocks beyond its cell - don't cull it too early. */
+    public AABB getRenderBoundingBox() {
+        return new AABB(worldPosition).inflate(3.0);
+    }
+
+    // ------------------------------------------------------------------ persistence / sync
+
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
@@ -70,6 +111,13 @@ public class RiftBlockEntity extends BlockEntity {
         }
         tag.putBoolean("Returning", returning);
         tag.putLong("ExpireAt", expireAt);
+        ListTag list = new ListTag();
+        for (double[] s : segments) {
+            for (double d : s) {
+                list.add(DoubleTag.valueOf(d));
+            }
+        }
+        tag.put("Seg", list);
     }
 
     @Override
@@ -78,5 +126,22 @@ public class RiftBlockEntity extends BlockEntity {
         target = tag.contains("Target") ? ResourceLocation.tryParse(tag.getString("Target")) : null;
         returning = tag.getBoolean("Returning");
         expireAt = tag.getLong("ExpireAt");
+        segments.clear();
+        ListTag list = tag.getList("Seg", Tag.TAG_DOUBLE);
+        for (int i = 0; i + 6 < list.size(); i += 7) {
+            segments.add(new double[]{list.getDouble(i), list.getDouble(i + 1), list.getDouble(i + 2),
+                    list.getDouble(i + 3), list.getDouble(i + 4), list.getDouble(i + 5), list.getDouble(i + 6)});
+        }
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
+    }
+
+    @Nullable
+    @Override
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 }
