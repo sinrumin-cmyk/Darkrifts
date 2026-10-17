@@ -49,7 +49,7 @@ public class RiftBladeItem extends SwordItem {
     }
 
     @Override
-    public int getUseDuration(ItemStack stack) {
+    public int getUseDuration(ItemStack stack, LivingEntity entity) {
         return 72000;
     }
 
@@ -81,7 +81,7 @@ public class RiftBladeItem extends SwordItem {
             return;
         }
         RiftStroke stroke = RiftStroke.finish(player);
-        int usedTicks = getUseDuration(stack) - timeLeft;
+        int usedTicks = getUseDuration(stack, entity) - timeLeft;
         if (stroke == null || usedTicks < MIN_USE_TICKS || stroke.length() < MIN_LENGTH) {
             player.displayClientMessage(Component.translatable("message.darkrifts.stroke_too_short"), true);
             return;
