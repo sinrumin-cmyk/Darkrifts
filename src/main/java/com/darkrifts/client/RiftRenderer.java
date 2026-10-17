@@ -59,7 +59,7 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
             double cx = origin.getX() + 0.5;
             double cy = origin.getY() + 0.5;
             double cz = origin.getZ() + 0.5;
-            segs = List.of(new double[]{cx, cy - 0.55, cz, cx, cy + 0.55, cz, be.getSpawnTime()});
+            segs = List.of(new double[]{cx, cy - 0.55, cz, cx, cy + 0.55, cz, be.getSpawnTime(), 0.0, 1.1});
         }
 
         List<Strip> strips = new ArrayList<>();
@@ -82,8 +82,8 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
             int haloA = Math.min(255, 40 + (int) (st.flash * 150));
             int rimA = Math.min(255, 150 + (int) (st.flash * 105));
             int rimG = Math.min(255, 150 + (int) (st.flash * 105));
-            strip(glow, pose, origin, st.p, st.w, cam, 4.2F + st.flash * 3.0F, 0.06F, 105, 35, 235, haloA, 0.03);
-            strip(glow, pose, origin, st.p, st.w, cam, 1.9F + st.flash * 1.5F, 0.02F, 225, rimG, 255, rimA, 0.015);
+            strip(glow, pose, origin, st.p, st.w, cam, 2.6F + st.flash * 1.6F, 0.05F, 105, 35, 235, haloA, 0.03);
+            strip(glow, pose, origin, st.p, st.w, cam, 1.35F + st.flash * 0.6F, 0.025F, 225, rimG, 255, rimA, 0.015);
         }
         // Pass 2: the void core.
         VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
@@ -99,6 +99,7 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         Vec3 a = new Vec3(s[0], s[1], s[2]);
         Vec3 b = new Vec3(s[3], s[4], s[5]);
         float age = Math.max(0.0F, time - (float) s[6]);
+        double total = s.length > 8 ? s[8] : 0.0;
         long h = hash(Double.doubleToLongBits(s[0]) * 31L + Double.doubleToLongBits(s[2]) + (long) (s[1] * 977.0));
 
         // The line zips open: 0 -> 1 over ~5 ticks, with a slight overshoot-free ease-out.
@@ -134,7 +135,20 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
             double n = 0.5 + 0.5 * Math.sin(q.x * 3.1 + q.y * 2.3 + q.z * 1.7)
                     * Math.sin(q.x * 1.3 - q.y * 1.1 + q.z * 2.9 + 1.0);
             float pulse = 1.0F + 0.10F * (float) Math.sin(time * 0.18 + q.y * 1.5);
-            main.w[i] = (0.035F + 0.05F * (float) n) * pulse * (0.3F + 0.7F * settle) * (1.0F + flash * 0.8F);
+            // Fat in the middle of the whole rift, needle-thin at both ends.
+            double pos = s[7] + dir.length() * (i / (double) SUB);
+            float env;
+            float maxW;
+            if (total > 0.0) {
+                double x = Mth.clamp(pos / total, 0.0, 1.0);
+                env = Math.max(0.07F, (float) Math.pow(Math.sin(Math.PI * x), 0.8));
+                maxW = Mth.clamp(0.10F + 0.014F * (float) total, 0.15F, 0.38F);
+            } else {
+                env = Mth.clamp(0.07F + (float) pos / 3.0F, 0.07F, 1.0F); // still being drawn
+                maxW = 0.20F;
+            }
+            main.w[i] = maxW * env * (0.78F + 0.22F * (float) n) * pulse * (0.3F + 0.7F * settle)
+                    * (1.0F + flash * 0.6F);
         }
         out.add(main);
 

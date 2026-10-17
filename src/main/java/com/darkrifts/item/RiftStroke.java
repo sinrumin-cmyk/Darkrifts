@@ -30,6 +30,9 @@ public final class RiftStroke {
 
     /** Everything the stroke has placed so far (used to avoid duplicates and to enforce the block cap). */
     public final Set<BlockPos> cells = new HashSet<>();
+    /** Length of the line drawn so far (blocks) and the cells that own pieces of it. */
+    public double length;
+    public final Set<BlockPos> owners = new HashSet<>();
     public int placed;
     public int damaged;
     /** Chosen when the first block is placed; all blocks of one rift lead to the same place and collapse together. */

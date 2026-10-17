@@ -271,12 +271,6 @@ def make_worldgen_and_recipe():
             {"type": "minecraft:biome"},
         ],
     })
-    write_json("data/%s/neoforge/biome_modifier/natural_rifts.json" % MOD, {
-        "type": "neoforge:add_features",
-        "biomes": "#minecraft:is_overworld",
-        "features": "%s:natural_rift" % MOD,
-        "step": "surface_structures",
-    })
     write_json("data/%s/worldgen/configured_feature/mirror_darken.json" % MOD,
                {"type": "%s:darken" % MOD, "config": {}})
     write_json("data/%s/worldgen/placed_feature/mirror_darken.json" % MOD,

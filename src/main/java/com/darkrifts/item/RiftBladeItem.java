@@ -112,6 +112,7 @@ public class RiftBladeItem extends SwordItem {
         Vec3 to = stroke.lastPoint();
         double len = from.distanceTo(to);
         if (len > 0.04) {
+            double uBase = stroke.length;
             // Split long moves into short pieces so every piece is owned by a cell right next to it.
             int pieces = Math.max(1, (int) Math.ceil(len / 1.1));
             for (int i = 0; i < pieces; i++) {
@@ -141,9 +142,11 @@ public class RiftBladeItem extends SwordItem {
                     }
                 }
                 if (owner != null) {
-                    RiftBlock.addSegment(serverLevel, owner, a, b, now);
+                    RiftBlock.addSegment(serverLevel, owner, a, b, now, uBase + len * i / pieces, 0.0);
+                    stroke.owners.add(owner);
                 }
             }
+            stroke.length += len;
         }
 
         if (newBlocks > 0) {
@@ -176,6 +179,11 @@ public class RiftBladeItem extends SwordItem {
         if (stroke.placed < 1) {
             player.displayClientMessage(Component.translatable("message.darkrifts.no_room"), true);
             return;
+        }
+        for (BlockPos op : stroke.owners) {
+            if (serverLevel.getBlockEntity(op) instanceof RiftBlockEntity rbe) {
+                rbe.finishLength(stroke.length);
+            }
         }
         Vec3 c = stroke.center();
         BlockPos cp = BlockPos.containing(c);

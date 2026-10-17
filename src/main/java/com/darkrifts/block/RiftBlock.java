@@ -71,11 +71,26 @@ public class RiftBlock extends BaseEntityBlock {
                 : new net.minecraft.world.phys.Vec3(0, 1, 0);
         net.minecraft.world.phys.Vec3 start = c[0].subtract(dir.scale(0.55));
         net.minecraft.world.phys.Vec3 end = c[n - 1].add(dir.scale(0.55));
-        addSegment(level, cells.get(0), start, c[0], birth);
+        java.util.List<net.minecraft.world.phys.Vec3[]> pieces = new java.util.ArrayList<>();
+        java.util.List<BlockPos> owners = new java.util.ArrayList<>();
+        pieces.add(new net.minecraft.world.phys.Vec3[]{start, c[0]});
+        owners.add(cells.get(0));
         for (int i = 1; i < n; i++) {
-            addSegment(level, cells.get(i - 1), c[i - 1], c[i], birth);
+            pieces.add(new net.minecraft.world.phys.Vec3[]{c[i - 1], c[i]});
+            owners.add(cells.get(i - 1));
         }
-        addSegment(level, cells.get(n - 1), c[n - 1], end, birth);
+        pieces.add(new net.minecraft.world.phys.Vec3[]{c[n - 1], end});
+        owners.add(cells.get(n - 1));
+        double total = 0.0;
+        for (net.minecraft.world.phys.Vec3[] pc : pieces) {
+            total += pc[0].distanceTo(pc[1]);
+        }
+        double u = 0.0;
+        for (int i = 0; i < pieces.size(); i++) {
+            net.minecraft.world.phys.Vec3[] pc = pieces.get(i);
+            addSegment(level, owners.get(i), pc[0], pc[1], birth, u, total);
+            u += pc[0].distanceTo(pc[1]);
+        }
     }
 
     /** A permanent vertical tear: {@code height} cells going up from {@code base}. */
@@ -95,9 +110,9 @@ public class RiftBlock extends BaseEntityBlock {
 
     /** Stores a piece of the visible tear line in the rift block at {@code pos}. */
     public static void addSegment(LevelAccessor level, BlockPos pos, net.minecraft.world.phys.Vec3 a,
-                                  net.minecraft.world.phys.Vec3 b, long birth) {
+                                  net.minecraft.world.phys.Vec3 b, long birth, double u, double total) {
         if (level.getBlockEntity(pos) instanceof RiftBlockEntity rift) {
-            rift.addSegment(a.x, a.y, a.z, b.x, b.y, b.z, birth);
+            rift.addSegment(a.x, a.y, a.z, b.x, b.y, b.z, birth, u, total);
         }
     }
 

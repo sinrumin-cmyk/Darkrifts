@@ -30,6 +30,9 @@ public final class DarkDimensions {
 
     /** Where a freshly torn rift leads. Kept as a method so more realms can be added later. */
     public static ResourceLocation random(RandomSource random, ResourceKey<Level> exclude) {
+        if (isDark(exclude)) {
+            return Level.OVERWORLD.location();
+        }
         return MIRROR;
     }
 }

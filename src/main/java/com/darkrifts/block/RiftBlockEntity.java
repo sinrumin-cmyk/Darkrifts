@@ -55,14 +55,32 @@ public class RiftBlockEntity extends BlockEntity {
     }
 
     /** Adds a piece of the tear line to this cell and syncs it to clients. */
-    public void addSegment(double ax, double ay, double az, double bx, double by, double bz, long birth) {
+    public void addSegment(double ax, double ay, double az, double bx, double by, double bz, long birth,
+                           double u, double total) {
         if (segments.size() >= MAX_SEGMENTS) {
             segments.remove(0);
         }
-        segments.add(new double[]{ax, ay, az, bx, by, bz, (double) birth});
+        segments.add(new double[]{ax, ay, az, bx, by, bz, (double) birth, u, total});
         setChanged();
         if (level != null && !level.isClientSide) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    /** Called when the stroke ends: tells every piece of the live stroke how long the whole rift turned out. */
+    public void finishLength(double total) {
+        boolean changed = false;
+        for (double[] s : segments) {
+            if (s[8] == 0.0) {
+                s[8] = total;
+                changed = true;
+            }
+        }
+        if (changed) {
+            setChanged();
+            if (level != null && !level.isClientSide) {
+                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+            }
         }
     }
 
@@ -117,7 +135,7 @@ public class RiftBlockEntity extends BlockEntity {
                 list.add(DoubleTag.valueOf(d));
             }
         }
-        tag.put("Seg", list);
+        tag.put("Seg9", list);
     }
 
     @Override
@@ -127,10 +145,11 @@ public class RiftBlockEntity extends BlockEntity {
         returning = tag.getBoolean("Returning");
         expireAt = tag.getLong("ExpireAt");
         segments.clear();
-        ListTag list = tag.getList("Seg", Tag.TAG_DOUBLE);
-        for (int i = 0; i + 6 < list.size(); i += 7) {
+        ListTag list = tag.getList("Seg9", Tag.TAG_DOUBLE);
+        for (int i = 0; i + 8 < list.size(); i += 9) {
             segments.add(new double[]{list.getDouble(i), list.getDouble(i + 1), list.getDouble(i + 2),
-                    list.getDouble(i + 3), list.getDouble(i + 4), list.getDouble(i + 5), list.getDouble(i + 6)});
+                    list.getDouble(i + 3), list.getDouble(i + 4), list.getDouble(i + 5), list.getDouble(i + 6),
+                    list.getDouble(i + 7), list.getDouble(i + 8)});
         }
     }
 

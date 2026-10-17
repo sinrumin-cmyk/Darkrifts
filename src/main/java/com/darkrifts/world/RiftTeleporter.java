@@ -48,6 +48,10 @@ public final class RiftTeleporter {
     /** Sends the entity into the given dark dimension, building a return rift at the arrival point. */
     public static void travelTo(Entity entity, ServerLevel from, ResourceLocation targetId, BlockPos riftPos) {
         MinecraftServer server = from.getServer();
+        if (!DarkDimensions.isDark(DarkDimensions.key(targetId))) {
+            goHome(entity, from); // a rift drawn inside the mirror leads back to the overworld
+            return;
+        }
         ServerLevel dest = server.getLevel(DarkDimensions.key(targetId));
         if (dest == null) {
             if (entity instanceof ServerPlayer player) {
@@ -63,7 +67,7 @@ public final class RiftTeleporter {
         RandomSource random = dest.getRandom();
         BlockPos base = new BlockPos(riftPos.getX(), 0, riftPos.getZ());
         BlockPos arrival = findArrival(dest, base, random);
-        float yaw = placeReturnRift(dest, arrival, random);
+        float yaw = entity.getYRot(); // no return rift is built any more
 
         from.playSound(null, entity.blockPosition(), SoundEvents.PORTAL_TRAVEL, SoundSource.PLAYERS, 0.4F, 1.4F);
         Vec3 pos = new Vec3(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5);
