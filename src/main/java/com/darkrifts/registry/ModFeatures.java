@@ -1,6 +1,7 @@
 package com.darkrifts.registry;
 
 import com.darkrifts.DarkRifts;
+import com.darkrifts.world.MirrorFeature;
 import com.darkrifts.world.RiftFeature;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.levelgen.feature.Feature;
@@ -13,6 +14,9 @@ public final class ModFeatures {
             DeferredRegister.create(Registries.FEATURE, DarkRifts.MODID);
 
     public static final Supplier<RiftFeature> RIFT = FEATURES.register("rift", RiftFeature::new);
+
+    /** Darkens and ruins chunks of the mirror dimension (no-op elsewhere). */
+    public static final Supplier<MirrorFeature> DARKEN = FEATURES.register("darken", MirrorFeature::new);
 
     private ModFeatures() {}
 }

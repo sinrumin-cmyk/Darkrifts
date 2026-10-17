@@ -4,11 +4,12 @@ Generates every JSON / PNG resource of the Dark Rifts mod into src/main/resource
 
     python3 tools/generate_assets.py
 
-Needs Pillow (pip install pillow). Keep DIMENSIONS in sync with DarkDimensions.COUNT in the Java code.
+Needs Pillow (pip install pillow). The single mirror dimension is named in DarkDimensions.MIRROR.
 """
 import json
 import math
 import os
+import shutil
 import sys
 
 from PIL import Image
@@ -117,7 +118,7 @@ def make_client_assets():
         "block.%s.rift" % MOD: "Rift",
         "item.%s.rift_blade" % MOD: "Rift Blade",
         "itemGroup.%s" % MOD: "Dark Rifts",
-        "tooltip.%s.rift_blade.1" % MOD: "Tears holes in the sky to the dark realms.",
+        "tooltip.%s.rift_blade.1" % MOD: "Tears rifts in the sky into the dark mirror of the world.",
         "tooltip.%s.rift_blade.2" % MOD: "Hold Right Click, look up and drag your view to draw a rift.",
         "message.%s.stroke_too_short" % MOD: "The rift fizzles out... drag further.",
         "message.%s.no_room" % MOD: "There is no room for a rift here.",
@@ -127,186 +128,51 @@ def make_client_assets():
         "block.%s.rift" % MOD: "Разлом",
         "item.%s.rift_blade" % MOD: "Клинок разломов",
         "itemGroup.%s" % MOD: "Тёмные разломы",
-        "tooltip.%s.rift_blade.1" % MOD: "Рвёт небо, открывая путь в тёмные миры.",
+        "tooltip.%s.rift_blade.1" % MOD: "Рвёт небо, открывая путь в тёмное зеркало мира.",
         "tooltip.%s.rift_blade.2" % MOD: "Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом.",
         "message.%s.stroke_too_short" % MOD: "Разлом угас... веди дальше.",
         "message.%s.no_room" % MOD: "Здесь нет места для разлома.",
         "message.%s.dimension_missing" % MOD: "Разлом ведёт в никуда (%s отсутствует).",
     }
-    for b in BIOMES:
-        en["biome.%s.%s" % (MOD, b["name"])] = b["title_en"]
-        ru["biome.%s.%s" % (MOD, b["name"])] = b["title_ru"]
     write_json("assets/%s/lang/en_us.json" % MOD, en)
     write_json("assets/%s/lang/ru_ru.json" % MOD, ru)
 
 
-# --------------------------------------------------------------------------- biomes
-MONSTERS = [
-    {"type": "minecraft:spider", "weight": 100, "minCount": 4, "maxCount": 4},
-    {"type": "minecraft:zombie", "weight": 95, "minCount": 4, "maxCount": 4},
-    {"type": "minecraft:skeleton", "weight": 100, "minCount": 4, "maxCount": 4},
-    {"type": "minecraft:creeper", "weight": 100, "minCount": 4, "maxCount": 4},
-    {"type": "minecraft:enderman", "weight": 12, "minCount": 1, "maxCount": 4},
-    {"type": "minecraft:witch", "weight": 5, "minCount": 1, "maxCount": 1},
-]
-
-ORES = [
-    "minecraft:ore_dirt", "minecraft:ore_gravel", "minecraft:ore_tuff",
-    "minecraft:ore_coal_upper", "minecraft:ore_coal_lower",
-    "minecraft:ore_iron_upper", "minecraft:ore_iron_middle", "minecraft:ore_iron_small",
-    "minecraft:ore_gold", "minecraft:ore_redstone", "minecraft:ore_diamond",
-    "minecraft:ore_lapis", "minecraft:ore_copper",
-]
-
-BIOMES = [
-    dict(name="umbral_plains", title_en="Umbral Plains", title_ru="Сумрачные равнины",
-         sky=rgb(5, 4, 12), fog=rgb(10, 8, 20), water=rgb(14, 20, 40), water_fog=rgb(6, 8, 18),
-         grass=rgb(38, 56, 44), foliage=rgb(28, 44, 38), particle=None,
-         vegetation=["minecraft:trees_plains", "minecraft:patch_grass_plain", "minecraft:patch_dead_bush"]),
-    dict(name="gloomwood", title_en="Gloomwood", title_ru="Мрачная чаща",
-         sky=rgb(3, 5, 8), fog=rgb(6, 10, 12), water=rgb(10, 28, 30), water_fog=rgb(4, 14, 16),
-         grass=rgb(24, 44, 34), foliage=rgb(18, 34, 28), particle=None,
-         vegetation=["minecraft:dark_forest_vegetation", "minecraft:brown_mushroom_normal",
-                     "minecraft:red_mushroom_normal"]),
-    dict(name="ashen_wastes", title_en="Ashen Wastes", title_ru="Пепельная пустошь",
-         sky=rgb(10, 10, 12), fog=rgb(22, 22, 26), water=rgb(30, 30, 38), water_fog=rgb(14, 14, 18),
-         grass=rgb(58, 58, 62), foliage=rgb(46, 46, 52), particle=("minecraft:ash", 0.02),
-         vegetation=["minecraft:patch_dead_bush"]),
-    dict(name="void_marsh", title_en="Void Marsh", title_ru="Бездонное болото",
-         sky=rgb(8, 3, 16), fog=rgb(16, 7, 32), water=rgb(34, 14, 72), water_fog=rgb(18, 8, 40),
-         grass=rgb(46, 30, 62), foliage=rgb(36, 24, 52), particle=("minecraft:white_ash", 0.006),
-         vegetation=["minecraft:trees_swamp", "minecraft:brown_mushroom_normal",
-                     "minecraft:red_mushroom_normal"]),
-    dict(name="nightfall_peaks", title_en="Nightfall Peaks", title_ru="Пики Сумерек",
-         sky=rgb(2, 4, 14), fog=rgb(8, 12, 28), water=rgb(12, 24, 58), water_fog=rgb(6, 12, 30),
-         grass=rgb(30, 46, 58), foliage=rgb(22, 38, 52), particle=None,
-         vegetation=["minecraft:trees_taiga", "minecraft:patch_grass_plain"]),
-]
-
-
-def make_biomes():
-    for b in BIOMES:
-        effects = {
-            "sky_color": b["sky"],
-            "fog_color": b["fog"],
-            "water_color": b["water"],
-            "water_fog_color": b["water_fog"],
-            "grass_color": b["grass"],
-            "foliage_color": b["foliage"],
-            "mood_sound": {"sound": "minecraft:ambient.cave", "tick_delay": 6000,
-                           "block_search_extent": 8, "offset": 2.0},
-        }
-        if b["particle"]:
-            effects["particle"] = {"options": {"type": b["particle"][0]}, "probability": b["particle"][1]}
-        features = [[] for _ in range(11)]
-        features[4] = ["%s:natural_rift" % MOD]                      # SURFACE_STRUCTURES
-        features[6] = list(ORES)                                      # UNDERGROUND_ORES
-        features[8] = ["minecraft:spring_water", "minecraft:spring_lava"]  # FLUID_SPRINGS
-        features[9] = list(b["vegetation"])                           # VEGETAL_DECORATION
-        write_json("data/%s/worldgen/biome/%s.json" % (MOD, b["name"]), {
-            "has_precipitation": False,
-            "temperature": 0.5,
-            "downfall": 0.0,
-            "effects": effects,
-            "spawners": {
-                "monster": MONSTERS,
-                "creature": [],
-                "ambient": [{"type": "minecraft:bat", "weight": 10, "minCount": 8, "maxCount": 8}],
-                "axolotls": [],
-                "underground_water_creature": [],
-                "water_creature": [],
-                "water_ambient": [],
-                "misc": [],
-            },
-            "spawn_costs": {},
-            "carvers": {"air": ["minecraft:cave", "minecraft:cave_extra_underground", "minecraft:canyon"]},
-            "features": features,
-        })
-
-
-# --------------------------------------------------------------------------- dimensions
-def dimension_type(min_y, height, has_ceiling, has_skylight, infiniburn):
-    return {
-        "ultrawarm": False,
-        "natural": True,
-        "coordinate_scale": 1.0,
-        "has_skylight": has_skylight,
-        "has_ceiling": has_ceiling,
-        "ambient_light": 0.0,
-        "fixed_time": 18000,                      # eternal midnight
-        "monster_spawn_light_level": {"type": "minecraft:uniform", "min_inclusive": 0, "max_inclusive": 7},
-        "monster_spawn_block_light_limit": 0,
-        "piglin_safe": False,
-        "bed_works": True,
-        "respawn_anchor_works": False,
-        "has_raids": False,
-        "logical_height": height,
-        "min_y": min_y,
-        "height": height,
-        "infiniburn": infiniburn,
-        "effects": "minecraft:overworld",
-    }
-
-
-DIM_TYPES = {
-    "dark_tall": dimension_type(-64, 384, False, True, "#minecraft:infiniburn_overworld"),
-    "dark_short": dimension_type(0, 256, False, True, "#minecraft:infiniburn_overworld"),
-    "dark_end": dimension_type(0, 128, False, True, "#minecraft:infiniburn_end"),
-    "dark_nether": dimension_type(0, 128, True, False, "#minecraft:infiniburn_nether"),
+# --------------------------------------------------------------------------- mirror dimension
+DIM_TYPE = {
+    "ultrawarm": False,
+    "natural": True,
+    "coordinate_scale": 1.0,
+    "has_skylight": True,
+    "has_ceiling": False,
+    "ambient_light": 0.0,
+    "fixed_time": 18000,                      # eternal midnight
+    "monster_spawn_light_level": {"type": "minecraft:uniform", "min_inclusive": 0, "max_inclusive": 7},
+    "monster_spawn_block_light_limit": 0,
+    "piglin_safe": False,
+    "bed_works": True,
+    "respawn_anchor_works": False,
+    "has_raids": False,
+    "logical_height": 384,
+    "min_y": -64,
+    "height": 384,
+    "infiniburn": "#minecraft:infiniburn_overworld",
+    "effects": "minecraft:overworld",
 }
 
-# (terrain preset, dimension type, biome names)
-B = [b["name"] for b in BIOMES]
-DIMENSIONS = [
-    ("minecraft:overworld", "dark_tall", [B[0], B[1], B[4]]),
-    ("minecraft:overworld", "dark_tall", [B[1], B[3]]),
-    ("minecraft:amplified", "dark_tall", [B[4], B[2], B[0]]),
-    ("minecraft:large_biomes", "dark_tall", [B[1], B[2], B[3], B[4]]),
-    ("minecraft:caves", "dark_tall", [B[2], B[3]]),
-    ("minecraft:floating_islands", "dark_short", [B[0], B[1], B[3]]),
-    ("minecraft:end", "dark_end", [B[3], B[4]]),
-    ("minecraft:nether", "dark_nether", [B[2], B[1]]),
-    ("minecraft:amplified", "dark_tall", [B[3], B[1], B[2]]),
-    ("minecraft:overworld", "dark_tall", [B[2], B[3], B[0]]),
-    ("minecraft:floating_islands", "dark_short", [B[4], B[2]]),
-    ("minecraft:end", "dark_end", [B[0], B[1], B[2]]),
-]
-assert len(DIMENSIONS) == 12, "keep in sync with DarkDimensions.COUNT"
 
-
-def biome_source(biome_names):
-    n = len(biome_names)
-    entries = []
-    for i, name in enumerate(biome_names):
-        lo = round(-1.0 + 2.0 * i / n, 3)
-        hi = round(-1.0 + 2.0 * (i + 1) / n, 3)
-        entries.append({
-            "biome": "%s:%s" % (MOD, name),
-            "parameters": {
-                "temperature": [lo, hi],
-                "humidity": [-2.0, 2.0],
-                "continentalness": [-2.0, 2.0],
-                "erosion": [-2.0, 2.0],
-                "depth": [-2.0, 2.0],
-                "weirdness": [-2.0, 2.0],
-                "offset": 0.0,
-            },
-        })
-    return {"type": "minecraft:multi_noise", "biomes": entries}
-
-
-def make_dimensions():
-    for name, data in DIM_TYPES.items():
-        write_json("data/%s/dimension_type/%s.json" % (MOD, name), data)
-    for i, (preset, dtype, biome_names) in enumerate(DIMENSIONS):
-        write_json("data/%s/dimension/dark_%02d.json" % (MOD, i + 1), {
-            "type": "%s:%s" % (MOD, dtype),
-            "generator": {
-                "type": "minecraft:noise",
-                "settings": preset,
-                "biome_source": biome_source(biome_names),
-            },
-        })
+def make_dimension():
+    write_json("data/%s/dimension_type/dark_tall.json" % MOD, DIM_TYPE)
+    # Same noise settings + same biome layout + (automatically) the same world seed as the overworld
+    # => identical terrain, caves, ores, trees and structure positions. The mod darkens it while it generates.
+    write_json("data/%s/dimension/mirror.json" % MOD, {
+        "type": "%s:dark_tall" % MOD,
+        "generator": {
+            "type": "minecraft:noise",
+            "settings": "minecraft:overworld",
+            "biome_source": {"type": "minecraft:multi_noise", "preset": "minecraft:overworld"},
+        },
+    })
 
 
 # --------------------------------------------------------------------------- worldgen, recipe
@@ -328,6 +194,16 @@ def make_worldgen_and_recipe():
         "features": "%s:natural_rift" % MOD,
         "step": "surface_structures",
     })
+    write_json("data/%s/worldgen/configured_feature/mirror_darken.json" % MOD,
+               {"type": "%s:darken" % MOD, "config": {}})
+    write_json("data/%s/worldgen/placed_feature/mirror_darken.json" % MOD,
+               {"feature": "%s:mirror_darken" % MOD, "placement": []})
+    write_json("data/%s/neoforge/biome_modifier/mirror_darken.json" % MOD, {
+        "type": "neoforge:add_features",
+        "biomes": "#minecraft:is_overworld",
+        "features": "%s:mirror_darken" % MOD,
+        "step": "top_layer_modification",
+    })
     write_json("data/%s/recipe/rift_blade.json" % MOD, {
         "type": "minecraft:crafting_shaped",
         "category": "equipment",
@@ -342,11 +218,11 @@ def make_worldgen_and_recipe():
 
 
 if __name__ == "__main__":
+    shutil.rmtree(os.path.join(RES, "data", MOD), ignore_errors=True)
     make_rift_texture()
     make_sword_texture()
     make_client_assets()
-    make_biomes()
-    make_dimensions()
+    make_dimension()
     make_worldgen_and_recipe()
     print("Generated resources into", RES)
     sys.exit(0)

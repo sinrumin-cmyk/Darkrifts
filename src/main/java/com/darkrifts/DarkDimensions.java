@@ -7,16 +7,17 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 
 /**
- * The pool of dark dimensions. The matching JSON files (data/darkrifts/dimension/dark_01.json ...)
- * are produced by tools/generate_assets.py - keep COUNT in sync with that script.
+ * The dark realm is a single "mirror" of the overworld: same seed, same terrain, same caves, but built from dark stone,
+ * dead and ruined. The dimension JSON lives in data/darkrifts/dimension/mirror.json (see tools/generate_assets.py).
  */
 public final class DarkDimensions {
-    public static final int COUNT = 12;
+    public static final int COUNT = 1;
+    public static final ResourceLocation MIRROR = ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, "mirror");
 
     private DarkDimensions() {}
 
     public static ResourceLocation id(int index) {
-        return ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, String.format("dark_%02d", index + 1));
+        return MIRROR;
     }
 
     public static ResourceKey<Level> key(ResourceLocation id) {
@@ -24,18 +25,11 @@ public final class DarkDimensions {
     }
 
     public static boolean isDark(ResourceKey<Level> key) {
-        ResourceLocation loc = key.location();
-        return loc.getNamespace().equals(DarkRifts.MODID) && loc.getPath().startsWith("dark_");
+        return key.location().equals(MIRROR);
     }
 
-    /** Picks a random dark dimension, never the one we are currently standing in. */
+    /** Where a freshly torn rift leads. Kept as a method so more realms can be added later. */
     public static ResourceLocation random(RandomSource random, ResourceKey<Level> exclude) {
-        for (int i = 0; i < 8; i++) {
-            ResourceLocation candidate = id(random.nextInt(COUNT));
-            if (!candidate.equals(exclude.location())) {
-                return candidate;
-            }
-        }
-        return id(random.nextInt(COUNT));
+        return MIRROR;
     }
 }

@@ -89,10 +89,11 @@ public final class RiftTeleporter {
             }
         }
         if (dest == null) {
+            // The realm is a mirror of the overworld, so "home" is the overworld at the very same X/Z.
             dest = server.overworld();
-            BlockPos spawn = dest.getSharedSpawnPos();
-            dest.getChunk(spawn.getX() >> 4, spawn.getZ() >> 4);
-            BlockPos top = dest.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, spawn);
+            BlockPos same = BlockPos.containing(entity.getX(), 0, entity.getZ());
+            dest.getChunk(same.getX() >> 4, same.getZ() >> 4);
+            BlockPos top = dest.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, same);
             pos = Vec3.atBottomCenterOf(top);
         } else {
             dest.getChunk(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4);

@@ -15,11 +15,16 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
- * Draws the rift as a jagged, camera-facing crack instead of cubes.
- * Every rift block becomes a node (jittered by a position hash); neighbouring nodes are joined by ribbons.
- * The ribbon core uses the End-portal shader (a window into "space"); two additive layers add a purple glow.
+ * Thaumcraft-style flux rift: instead of cubes, every rift block draws one jagged, spiky "shard" that always
+ * faces the camera and is stretched along the direction of the crack. Overlapping shards of neighbouring
+ * blocks merge into a ragged tear.
+ *
+ * Each shard has three layers (back to front): a faint violet halo, a bright violet-white rim, and a dark core
+ * rendered with the End-portal shader (a window into the void). The layers are pushed slightly apart along the
+ * view direction so they never z-fight.
  */
 public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
+    private static final int RING = 14; // vertices around a shard
 
     public RiftRenderer(BlockEntityRendererProvider.Context context) {}
 
@@ -35,13 +40,11 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         Matrix4f pose = poseStack.last().pose();
         float time = level.getGameTime() + partialTick;
 
-        VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
-        VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
+        long h = hash(pos.asLong());
+        Vec3 c = node(pos, h, time);
 
-        Vec3 a = node(pos, time);
-        float widthA = width(pos, time);
-
-        // Collect links to neighbours (faces + edges only, no pure corners).
+        // Direction of the crack = averaged direction to linked neighbours (sign-agnostic).
+        Vec3 axis = null;
         int links = 0;
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
@@ -55,73 +58,109 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
                         continue;
                     }
                     links++;
-                    if (np.asLong() < pos.asLong()) {
-                        continue; // the neighbour draws this segment
+                    Vec3 d = node(np, hash(np.asLong()), time).subtract(c);
+                    if (d.lengthSqr() < 1.0E-6) {
+                        continue;
                     }
-                    Vec3 b = node(np, time);
-                    float widthB = width(np, time);
-                    segment(core, glow, pose, pos, cam, a, b, widthA, widthB);
+                    d = d.normalize();
+                    axis = axis == null ? d : axis.add(d.dot(axis) < 0 ? d.scale(-1) : d);
                 }
             }
         }
-
-        if (links == 0) {
-            // Lonely cell: a short sparkle-crack so it still reads as a tear.
-            long h = hash(pos.asLong() ^ 0x5DEECE66DL);
-            Vec3 dir = new Vec3(rand(h, 0) - 0.5, rand(h, 16) - 0.5, rand(h, 32) - 0.5).normalize().scale(0.4);
-            segment(core, glow, pose, pos, cam, a.subtract(dir), a.add(dir), 0.02F, 0.02F);
+        if (axis == null || axis.lengthSqr() < 1.0E-6) {
+            axis = new Vec3(rand(h, 0) - 0.5, rand(h, 8) - 0.2, rand(h, 16) - 0.5);
+            if (axis.lengthSqr() < 1.0E-6) {
+                axis = new Vec3(0, 1, 0);
+            }
         }
-    }
+        axis = axis.normalize();
 
-    private static void segment(VertexConsumer core, VertexConsumer glow, Matrix4f pose, BlockPos origin,
-                                Vec3 cam, Vec3 a, Vec3 b, float wa, float wb) {
-        // soft outer glow, brighter inner glow, then the portal-shader core
-        ribbon(glow, pose, origin, cam, a, b, wa * 3.2, wb * 3.2, 110, 30, 210, 38);
-        ribbon(glow, pose, origin, cam, a, b, wa * 1.9, wb * 1.9, 190, 110, 255, 70);
-        ribbon(core, pose, origin, cam, a, b, wa, wb, -1, 0, 0, 0);
-    }
-
-    /** Emits a camera-facing, double-sided quad strip from a to b. r < 0 means "position only". */
-    private static void ribbon(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3 cam,
-                               Vec3 a, Vec3 b, double wa, double wb, int r, int g, int bl, int alpha) {
-        Vec3 dir = b.subtract(a);
-        Vec3 mid = a.add(b).scale(0.5);
-        Vec3 side = dir.cross(cam.subtract(mid));
-        if (side.lengthSqr() < 1.0E-8) {
+        // Camera-facing basis: f toward camera, u along the crack (projected), v perpendicular.
+        Vec3 f = cam.subtract(c);
+        if (f.lengthSqr() < 1.0E-6) {
             return;
         }
-        side = side.normalize();
-        Vec3[] c = {
-                a.add(side.scale(wa)), a.subtract(side.scale(wa)),
-                b.subtract(side.scale(wb)), b.add(side.scale(wb))
-        };
-        for (int pass = 0; pass < 2; pass++) { // both windings, so culling never hides the ribbon
-            for (int i = 0; i < 4; i++) {
-                Vec3 p = c[pass == 0 ? i : 3 - i];
-                VertexConsumer v = vc.addVertex(pose,
-                        (float) (p.x - origin.getX()), (float) (p.y - origin.getY()), (float) (p.z - origin.getZ()));
-                if (r >= 0) {
-                    v.setColor(r, g, bl, alpha);
-                }
+        f = f.normalize();
+        Vec3 u = axis.subtract(f.scale(axis.dot(f)));
+        if (u.lengthSqr() < 1.0E-4) {
+            u = f.cross(new Vec3(0, 1, 0));
+            if (u.lengthSqr() < 1.0E-4) {
+                u = f.cross(new Vec3(1, 0, 0));
             }
+        }
+        u = u.normalize();
+        Vec3 v = f.cross(u).normalize();
+
+        float pulse = 1.0F + 0.12F * (float) Math.sin(time * 0.13 + rand(h, 24) * 6.28);
+        float halfLen = (links <= 1 ? 0.6F : 0.95F) * (0.85F + 0.3F * rand(h, 32)) * pulse;
+        float halfWid = (0.17F + 0.12F * rand(h, 40)) * pulse;
+
+        VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
+        VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
+
+        shard(core, glow, pose, pos, c, f, u, v, halfLen, halfWid, h, time);
+        // A short spike across the crack, slowly turning - gives the star-burst look.
+        shard(core, glow, pose, pos, c, f, v, u.scale(-1), halfLen * 0.42F, halfWid * 0.8F, hash(h), time);
+    }
+
+    private static void shard(VertexConsumer core, VertexConsumer glow, Matrix4f pose, BlockPos origin,
+                              Vec3 c, Vec3 f, Vec3 u, Vec3 v, float halfLen, float halfWid, long h, float time) {
+        // Irregular radii; the two tips (i = 0 and RING/2) stay at full length.
+        float[] r = new float[RING];
+        for (int i = 0; i < RING; i++) {
+            float jag = 0.45F + 0.55F * rand(h, (i * 5) % 56);
+            if (i % 2 == 0) {
+                jag = Math.min(1.0F, jag + 0.25F);
+            }
+            jag *= 1.0F + 0.10F * (float) Math.sin(time * 0.2 + i * 1.7);
+            r[i] = (i == 0 || i == RING / 2) ? 1.0F : jag;
+        }
+
+        // layer: scale, push-away, colour (r = -1 means position only / portal shader)
+        fan(glow, pose, origin, c.subtract(f.scale(0.030)), u, v, halfLen * 1.75F, halfWid * 2.2F, r, 110, 40, 230, 42);
+        fan(glow, pose, origin, c.subtract(f.scale(0.015)), u, v, halfLen * 1.25F, halfWid * 1.45F, r, 225, 170, 255, 120);
+        fan(core, pose, origin, c, u, v, halfLen, halfWid, r, -1, 0, 0, 0);
+    }
+
+    /** Emits a double-sided triangle fan (as degenerate quads) around the centre. */
+    private static void fan(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3 c, Vec3 u, Vec3 v,
+                            float halfLen, float halfWid, float[] r, int red, int green, int blue, int alpha) {
+        Vec3[] p = new Vec3[RING];
+        for (int i = 0; i < RING; i++) {
+            double ang = i * (Math.PI * 2.0 / RING);
+            p[i] = c.add(u.scale(Math.cos(ang) * halfLen * r[i])).add(v.scale(Math.sin(ang) * halfWid * r[i]));
+        }
+        for (int i = 0; i < RING; i++) {
+            Vec3 a = p[i];
+            Vec3 b = p[(i + 1) % RING];
+            vertex(vc, pose, origin, c, red, green, blue, alpha);
+            vertex(vc, pose, origin, a, red, green, blue, alpha);
+            vertex(vc, pose, origin, b, red, green, blue, alpha);
+            vertex(vc, pose, origin, c, red, green, blue, alpha);
+            // reverse winding so culling never hides it
+            vertex(vc, pose, origin, c, red, green, blue, alpha);
+            vertex(vc, pose, origin, b, red, green, blue, alpha);
+            vertex(vc, pose, origin, a, red, green, blue, alpha);
+            vertex(vc, pose, origin, c, red, green, blue, alpha);
         }
     }
 
-    /** World-space position of a rift cell's node: cell centre + stable random jitter + slow wobble. */
-    private static Vec3 node(BlockPos p, float time) {
-        long h = hash(p.asLong());
-        double wob = time * 0.07;
-        return new Vec3(
-                p.getX() + 0.5 + (rand(h, 0) - 0.5) * 0.7 + Math.sin(wob + rand(h, 8) * 6.28) * 0.04,
-                p.getY() + 0.5 + (rand(h, 16) - 0.5) * 0.7 + Math.sin(wob * 1.3 + rand(h, 24) * 6.28) * 0.04,
-                p.getZ() + 0.5 + (rand(h, 32) - 0.5) * 0.7 + Math.sin(wob * 0.9 + rand(h, 40) * 6.28) * 0.04);
+    private static void vertex(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3 p,
+                               int r, int g, int b, int a) {
+        VertexConsumer v = vc.addVertex(pose,
+                (float) (p.x - origin.getX()), (float) (p.y - origin.getY()), (float) (p.z - origin.getZ()));
+        if (r >= 0) {
+            v.setColor(r, g, b, a);
+        }
     }
 
-    /** Half-width of the crack at a cell, in blocks; pulses gently. */
-    private static float width(BlockPos p, float time) {
-        long h = hash(p.asLong() * 31L + 7L);
-        float base = 0.06F + 0.07F * rand(h, 0);
-        return base * (1.0F + 0.18F * (float) Math.sin(time * 0.11 + rand(h, 12) * 6.28));
+    /** World-space node of a rift cell: cell centre + stable jitter + slow wobble. */
+    private static Vec3 node(BlockPos p, long h, float time) {
+        double wob = time * 0.07;
+        return new Vec3(
+                p.getX() + 0.5 + (rand(h, 0) - 0.5) * 0.6 + Math.sin(wob + rand(h, 8) * 6.28) * 0.04,
+                p.getY() + 0.5 + (rand(h, 16) - 0.5) * 0.6 + Math.sin(wob * 1.3 + rand(h, 24) * 6.28) * 0.04,
+                p.getZ() + 0.5 + (rand(h, 32) - 0.5) * 0.6 + Math.sin(wob * 0.9 + rand(h, 40) * 6.28) * 0.04);
     }
 
     private static long hash(long v) {
@@ -138,7 +177,7 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
     }
 
     /**
-     * The crack ribbons stretch into neighbouring cells, so don't cull this renderer too early.
+     * The shards stretch into neighbouring cells, so don't cull this renderer too early.
      * (Deliberately no @Override: if a NeoForge version names this differently it is simply unused.)
      */
     public net.minecraft.world.phys.AABB getRenderBoundingBox(RiftBlockEntity be) {

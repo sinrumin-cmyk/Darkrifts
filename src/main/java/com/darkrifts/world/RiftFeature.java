@@ -29,7 +29,9 @@ public class RiftFeature extends Feature<NoneFeatureConfiguration> {
             return false;
         }
 
-        ResourceLocation target = DarkDimensions.random(random, level.getLevel().dimension());
+        // In the overworld a natural rift leads into the mirror; inside the mirror it leads back home.
+        boolean inMirror = DarkDimensions.isDark(level.getLevel().dimension());
+        ResourceLocation target = inMirror ? null : DarkDimensions.random(random, level.getLevel().dimension());
         boolean alongX = random.nextBoolean();
         Direction side = alongX ? Direction.EAST : Direction.SOUTH;
 
@@ -39,12 +41,12 @@ public class RiftFeature extends Feature<NoneFeatureConfiguration> {
         for (int i = 0; i < height; i++) {
             BlockPos pos = origin.above(i).relative(side, offset);
             if (level.isEmptyBlock(pos)) {
-                RiftBlock.place(level, pos, target, false, 0L);
+                RiftBlock.place(level, pos, target, inMirror, 0L);
                 placed++;
                 if (random.nextInt(3) == 0) {
                     BlockPos extra = pos.relative(side, random.nextBoolean() ? 1 : -1);
                     if (level.isEmptyBlock(extra)) {
-                        RiftBlock.place(level, extra, target, false, 0L);
+                        RiftBlock.place(level, extra, target, inMirror, 0L);
                     }
                 }
             }
