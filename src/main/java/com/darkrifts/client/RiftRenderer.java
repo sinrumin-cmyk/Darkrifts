@@ -137,8 +137,11 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         return ((h >>> shift) & 0xFF) / 255.0F;
     }
 
-    @Override
-    public boolean shouldRenderOffScreen(RiftBlockEntity be) {
-        return false;
+    /**
+     * The crack ribbons stretch into neighbouring cells, so don't cull this renderer too early.
+     * (Deliberately no @Override: if a NeoForge version names this differently it is simply unused.)
+     */
+    public net.minecraft.world.phys.AABB getRenderBoundingBox(RiftBlockEntity be) {
+        return new net.minecraft.world.phys.AABB(be.getBlockPos()).inflate(1.5);
     }
 }
