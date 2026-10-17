@@ -219,7 +219,7 @@ def make_biomes():
                 "misc": [],
             },
             "spawn_costs": {},
-            "carvers": ["minecraft:cave", "minecraft:cave_extra_underground", "minecraft:canyon"],
+            "carvers": {"air": ["minecraft:cave", "minecraft:cave_extra_underground", "minecraft:canyon"]},
             "features": features,
         })
 

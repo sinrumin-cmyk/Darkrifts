@@ -33,6 +33,12 @@ public class RiftBlockEntity extends BlockEntity {
         return returning;
     }
 
+    /** The crack ribbons stretch into neighbouring cells, so don't cull the renderer too early. */
+    @Override
+    public net.minecraft.world.phys.AABB getRenderBoundingBox() {
+        return new net.minecraft.world.phys.AABB(worldPosition).inflate(1.5);
+    }
+
     /** Lazily rolls a random dark dimension for rifts that were placed without one. */
     public ResourceLocation getOrPickTarget(Level level) {
         if (target == null) {

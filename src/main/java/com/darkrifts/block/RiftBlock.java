@@ -52,7 +52,8 @@ public class RiftBlock extends BaseEntityBlock {
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
+        // The visible crack is drawn by RiftRenderer (block entity renderer), not by a block model.
+        return RenderShape.INVISIBLE;
     }
 
     @Override
