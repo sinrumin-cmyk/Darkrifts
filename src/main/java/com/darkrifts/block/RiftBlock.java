@@ -93,6 +93,37 @@ public class RiftBlock extends BaseEntityBlock {
         }
     }
 
+    /**
+     * Opens a temporary, purely visual rift through the given cells (only air cells are used), in the given order.
+     * It looks like a real rift but never teleports anyone. Returns how many cells were placed.
+     */
+    public static int placeDecorCells(LevelAccessor level, java.util.List<BlockPos> candidates, long expireAt,
+                                      long birth, RandomSource random) {
+        java.util.List<BlockPos> cells = new java.util.ArrayList<>();
+        for (BlockPos p : candidates) {
+            if (!level.getBlockState(p).isAir()) {
+                continue;
+            }
+            place(level, p, null, false, expireAt);
+            if (level.getBlockEntity(p) instanceof RiftBlockEntity rift) {
+                rift.setDecor(true);
+            }
+            cells.add(p);
+        }
+        linkCells(level, cells, birth, random);
+        return cells.size();
+    }
+
+    /** A temporary visual rift standing on {@code base}, {@code height} cells tall. */
+    public static void placeDecorColumn(LevelAccessor level, BlockPos base, int height, long expireAt, long birth,
+                                        RandomSource random) {
+        java.util.List<BlockPos> cells = new java.util.ArrayList<>();
+        for (int i = 0; i < height; i++) {
+            cells.add(base.above(i));
+        }
+        placeDecorCells(level, cells, expireAt, birth, random);
+    }
+
     /** A permanent vertical tear: {@code height} cells going up from {@code base}. */
     public static void placeColumn(LevelAccessor level, BlockPos base, int height, @Nullable ResourceLocation target,
                                    boolean returning, long expireAt, long birth, RandomSource random) {
@@ -174,6 +205,9 @@ public class RiftBlock extends BaseEntityBlock {
         }
         if (!(level.getBlockEntity(pos) instanceof RiftBlockEntity rift)) {
             return;
+        }
+        if (rift.isDecor()) {
+            return; // combat rifts never teleport (and must not put entities on portal cooldown)
         }
         // Block re-triggering while the (deferred) teleport is pending.
         entity.setPortalCooldown(60);

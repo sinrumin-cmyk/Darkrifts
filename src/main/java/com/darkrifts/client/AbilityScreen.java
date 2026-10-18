@@ -16,7 +16,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * releasing the key or clicking selects it. Escape closes without changing anything.
  */
 public class AbilityScreen extends Screen {
-    private static final int HALF = 22;
     private int hovered = -1;
 
     public AbilityScreen() {
@@ -36,11 +35,22 @@ public class AbilityScreen extends Screen {
             case PULL -> new ItemStack(Items.CRYING_OBSIDIAN);
             case CLOAK -> new ItemStack(Items.PHANTOM_MEMBRANE);
             case SEAL -> new ItemStack(Items.ENDER_EYE);
+            case WAVE -> new ItemStack(Items.AMETHYST_SHARD);
+            case SLASH -> new ItemStack(Items.NETHERITE_SWORD);
+            case STRIKE -> new ItemStack(Items.LIGHTNING_ROD);
+            case DRAIN -> new ItemStack(Items.FERMENTED_SPIDER_EYE);
+            case SHIELD -> new ItemStack(Items.SHIELD);
         };
     }
 
     private int radius() {
-        return Math.max(60, Math.min(width, height) / 3);
+        return Math.max(70, Math.min(width, height) * 38 / 100);
+    }
+
+    /** Half the size of an ability box: shrinks as more abilities share the circle. */
+    private int half() {
+        double slot = Math.PI * 2.0 * radius() / Ability.values().length;
+        return (int) Math.max(13.0, Math.min(22.0, slot / 2.0 - 3.0));
     }
 
     private int boxX(int i, int n) {
@@ -56,7 +66,7 @@ public class AbilityScreen extends Screen {
     private int pick(double mx, double my) {
         Ability[] all = Ability.values();
         for (int i = 0; i < all.length; i++) {
-            if (Math.abs(mx - boxX(i, all.length)) <= HALF + 4 && Math.abs(my - boxY(i, all.length)) <= HALF + 4) {
+            if (Math.abs(mx - boxX(i, all.length)) <= half() + 3 && Math.abs(my - boxY(i, all.length)) <= half() + 3) {
                 return i;
             }
         }
@@ -77,11 +87,10 @@ public class AbilityScreen extends Screen {
             boolean isHover = i == hovered;
             int fill = isHover ? 0xEE5B2A9A : 0xDD1A0F2E;
             int border = isSelected ? 0xFFE070FF : (isHover ? 0xFFB07CFF : 0xFF4A3A6A);
-            g.fill(bx - HALF, by - HALF, bx + HALF, by + HALF, fill);
-            g.renderOutline(bx - HALF, by - HALF, HALF * 2, HALF * 2, border);
+            int h = half();
+            g.fill(bx - h, by - h, bx + h, by + h, fill);
+            g.renderOutline(bx - h, by - h, h * 2, h * 2, border);
             g.renderItem(icon(all[i]), bx - 8, by - 8);
-            g.drawCenteredString(font, Component.translatable(all[i].key()), bx, by + HALF + 4,
-                    isSelected ? 0xFFE9B0FF : 0xFFFFFFFF);
         }
 
         Ability shown = hovered >= 0 ? all[hovered] : Abilities.clientSelected;

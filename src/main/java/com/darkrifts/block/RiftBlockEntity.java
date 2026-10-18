@@ -33,6 +33,8 @@ public class RiftBlockEntity extends BlockEntity {
     private boolean returning;
     /** Game time at which the rift collapses; 0 = permanent. */
     private long expireAt;
+    /** Combat rifts: purely visual, they never teleport anyone. */
+    private boolean decor;
     private final List<double[]> segments = new ArrayList<>();
 
     public RiftBlockEntity(BlockPos pos, BlockState state) {
@@ -43,6 +45,15 @@ public class RiftBlockEntity extends BlockEntity {
         this.target = target;
         this.returning = returning;
         this.expireAt = expireAt;
+        setChanged();
+    }
+
+    public boolean isDecor() {
+        return decor;
+    }
+
+    public void setDecor(boolean decor) {
+        this.decor = decor;
         setChanged();
     }
 
@@ -128,6 +139,7 @@ public class RiftBlockEntity extends BlockEntity {
             tag.putString("Target", target.toString());
         }
         tag.putBoolean("Returning", returning);
+        tag.putBoolean("Decor", decor);
         tag.putLong("ExpireAt", expireAt);
         ListTag list = new ListTag();
         for (double[] s : segments) {
@@ -143,6 +155,7 @@ public class RiftBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         target = tag.contains("Target") ? ResourceLocation.tryParse(tag.getString("Target")) : null;
         returning = tag.getBoolean("Returning");
+        decor = tag.getBoolean("Decor");
         expireAt = tag.getLong("ExpireAt");
         segments.clear();
         ListTag list = tag.getList("Seg9", Tag.TAG_DOUBLE);
