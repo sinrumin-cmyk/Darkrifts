@@ -22,3 +22,11 @@ type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+
+[[dependencies.${mod_id}]]
+modId="geckolib"
+type="required"
+versionRange="[4.7,)"
+ordering="AFTER"
+side="BOTH"

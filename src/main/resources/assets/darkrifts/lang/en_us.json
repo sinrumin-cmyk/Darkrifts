@@ -12,6 +12,7 @@
   "item.darkrifts.dark_water_bucket": "Dark Water Bucket",
   "message.darkrifts.not_your_seal": "Only the one who sealed this player can lift the seal",
   "message.darkrifts.not_sealed": "This player is not sealed",
+  "entity.darkrifts.rift_spike": "Rift Spike",
   "ability.darkrifts.rift": "Rift",
   "ability.darkrifts.rift.desc": "Hold Right Click and drag your view to tear a rift",
   "ability.darkrifts.spikes": "Rift Spikes",

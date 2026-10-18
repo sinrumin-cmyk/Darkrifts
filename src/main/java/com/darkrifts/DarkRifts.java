@@ -17,6 +17,7 @@ public class DarkRifts {
     public DarkRifts(IEventBus modBus, ModContainer container) {
         com.darkrifts.registry.ModFluids.FLUID_TYPES.register(modBus);
         com.darkrifts.registry.ModFluids.FLUIDS.register(modBus);
+        com.darkrifts.registry.ModEntities.ENTITIES.register(modBus);
         ModBlocks.BLOCKS.register(modBus);
         ModItems.ITEMS.register(modBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modBus);

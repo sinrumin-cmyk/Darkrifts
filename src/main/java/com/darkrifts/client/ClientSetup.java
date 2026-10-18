@@ -26,6 +26,7 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.RIFT.get(), RiftRenderer::new);
+        event.registerEntityRenderer(com.darkrifts.registry.ModEntities.RIFT_SPIKE.get(), RiftSpikeRenderer::new);
     }
 
     /** Both dark realms use the "no vanilla sky" effects; SkyRenderer draws the real one. */

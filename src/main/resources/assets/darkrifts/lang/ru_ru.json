@@ -12,6 +12,7 @@
   "item.darkrifts.dark_water_bucket": "Ведро тёмной воды",
   "message.darkrifts.not_your_seal": "Печать может снять только тот, кто её наложил",
   "message.darkrifts.not_sealed": "Этот игрок не запечатан",
+  "entity.darkrifts.rift_spike": "Шип разлома",
   "ability.darkrifts.rift": "Разлом",
   "ability.darkrifts.rift.desc": "Зажми ПКМ и веди взглядом, чтобы разорвать пространство",
   "ability.darkrifts.spikes": "Шипы разлома",

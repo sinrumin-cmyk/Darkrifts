@@ -35,6 +35,8 @@ public class RiftBlockEntity extends BlockEntity {
     private long expireAt;
     /** Combat rifts: purely visual, they never teleport anyone. */
     private boolean decor;
+    /** Ground crack: the tear lies flat on the top face of the block below instead of standing upright. */
+    private boolean flat;
     private final List<double[]> segments = new ArrayList<>();
 
     public RiftBlockEntity(BlockPos pos, BlockState state) {
@@ -54,6 +56,15 @@ public class RiftBlockEntity extends BlockEntity {
 
     public void setDecor(boolean decor) {
         this.decor = decor;
+        setChanged();
+    }
+
+    public boolean isFlat() {
+        return flat;
+    }
+
+    public void setFlat(boolean flat) {
+        this.flat = flat;
         setChanged();
     }
 
@@ -140,6 +151,7 @@ public class RiftBlockEntity extends BlockEntity {
         }
         tag.putBoolean("Returning", returning);
         tag.putBoolean("Decor", decor);
+        tag.putBoolean("Flat", flat);
         tag.putLong("ExpireAt", expireAt);
         ListTag list = new ListTag();
         for (double[] s : segments) {
@@ -156,6 +168,7 @@ public class RiftBlockEntity extends BlockEntity {
         target = tag.contains("Target") ? ResourceLocation.tryParse(tag.getString("Target")) : null;
         returning = tag.getBoolean("Returning");
         decor = tag.getBoolean("Decor");
+        flat = tag.getBoolean("Flat");
         expireAt = tag.getLong("ExpireAt");
         segments.clear();
         ListTag list = tag.getList("Seg9", Tag.TAG_DOUBLE);

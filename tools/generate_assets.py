@@ -128,24 +128,23 @@ def make_sword_texture():
 
 
 def make_void_texture():
-    """Animated starry 'end portal' matter (16x128, 8 frames, seamless)."""
+    """Calm near-black void rock with a few twinkling stars (16x128, 8 frames).
+    In the prison the real look is drawn on top with the End-portal shader (client/VoidMatterRenderer)."""
     import math, random
     F = 8
     img = Image.new("RGBA", (16, 16 * F))
-    rnd = random.Random(7)
+    rnd = random.Random(11)
+    base = [[rnd.random() for _ in range(16)] for _ in range(16)]
     stars = [(rnd.randrange(16), rnd.randrange(16), rnd.random() * 6.28,
-              rnd.choice([(120, 255, 255), (230, 150, 255), (255, 255, 255)])) for _ in range(14)]
-    tau = 2 * math.pi / 16
+              rnd.choice([(150, 255, 255), (220, 160, 255), (255, 255, 255)])) for _ in range(6)]
     for f in range(F):
         ph = f * 2 * math.pi / F
         for y in range(16):
             for x in range(16):
-                v = (math.sin(tau * x + ph) + math.sin(tau * (y * 2) - ph)
-                     + math.sin(tau * (x + y) + 2 * ph) + math.sin(tau * (x * 2 - y) - ph)) / 4.0
-                k = (v + 1) / 2
-                img.putpixel((x, f * 16 + y), (int(6 + 14 * k), int(8 + 34 * k), int(20 + 52 * k), 255))
+                k = base[y][x]
+                img.putpixel((x, f * 16 + y), (int(3 + 5 * k), int(4 + 7 * k), int(9 + 14 * k), 255))
         for (sx, sy, sp, col) in stars:
-            a = 0.25 + 0.75 * (0.5 + 0.5 * math.sin(ph + sp))
+            a = 0.15 + 0.85 * max(0.0, math.sin(ph + sp)) ** 3
             img.putpixel((sx, f * 16 + sy), (int(col[0] * a), int(col[1] * a), int(col[2] * a), 255))
     path = os.path.join(RES, "assets", MOD, "textures", "block", "void_matter.png")
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -256,6 +255,8 @@ def make_client_assets():
                {"animation": {"frametime": 5, "interpolate": True}})
     en.update({'message.darkrifts.not_your_seal': 'Only the one who sealed this player can lift the seal', 'message.darkrifts.not_sealed': 'This player is not sealed'})
     ru.update({'message.darkrifts.not_your_seal': 'Печать может снять только тот, кто её наложил', 'message.darkrifts.not_sealed': 'Этот игрок не запечатан'})
+    en["entity.%s.rift_spike" % MOD] = "Rift Spike"
+    ru["entity.%s.rift_spike" % MOD] = "Шип разлома"
     en.update(ABILITY_EN)
     ru.update(ABILITY_RU)
     en.update({'ability.darkrifts.wave': 'Spike Wave', 'ability.darkrifts.wave.desc': 'A line of rifts races forward, spikes bursting out', 'ability.darkrifts.slash': 'Void Slash', 'ability.darkrifts.slash.desc': 'A long cut through the air that wounds everything on it', 'ability.darkrifts.strike': 'Void Strike', 'ability.darkrifts.strike.desc': 'A rift opens on your target and a bolt falls through', 'ability.darkrifts.drain': 'Drain', 'ability.darkrifts.drain.desc': 'Steals the life of nearby enemies', 'ability.darkrifts.shield': 'Rift Barrier', 'ability.darkrifts.shield.desc': 'Throws back and hurts everything that comes close', 'ability.darkrifts.spikes.desc': 'Rifts tear open around you and spikes burst out'})

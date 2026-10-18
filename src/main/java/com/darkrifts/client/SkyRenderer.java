@@ -81,6 +81,8 @@ public final class SkyRenderer {
         stars(m, mirror ? starsMirror : starsVoid, time, mirror);
         if (mirror) {
             tear(m, time);
+        } else {
+            eye(m, time, event.getCamera().getPosition());
         }
 
         RenderSystem.defaultBlendFunc();
@@ -208,6 +210,179 @@ public final class SkyRenderer {
             b.addVertex(m, px - rx * size + ux * size, py + uy * size, pz - rz * size + uz * size).setColor(cr, cg, cb, a);
         }
         BufferUploader.drawWithShader(b.buildOrThrow());
+    }
+
+    // ------------------------------------------------------------------ the watching eye (void prison)
+
+    /** The eye hangs at a fixed world position high above the spawn point; its pupil follows the player. */
+    private static final double EYE_X = 0.5;
+    private static final double EYE_Y = 330.0;
+    private static final double EYE_Z = 170.0;
+    private static float eyeOx;
+    private static float eyeOy;
+
+    private static float lensH(float x, float w, float h) {
+        float t = Math.min(1.0F, Math.abs(x) / w);
+        return h * (float) Math.pow(Math.max(0.0F, 1.0F - t * t), 0.85);
+    }
+
+    private static void eyeVertex(BufferBuilder b, Matrix4f m, float[] c, float[] r, float[] u, float lx, float ly,
+                                  float cr, float cg, float cb, float a) {
+        b.addVertex(m, c[0] + r[0] * lx + u[0] * ly, c[1] + r[1] * lx + u[1] * ly, c[2] + r[2] * lx + u[2] * ly)
+                .setColor(cr, cg, cb, a);
+    }
+
+    private static void eye(Matrix4f m, float time, net.minecraft.world.phys.Vec3 cam) {
+        double ex = EYE_X - cam.x;
+        double ey = EYE_Y - cam.y;
+        double ez = EYE_Z - cam.z;
+        double len = Math.sqrt(ex * ex + ey * ey + ez * ez);
+        float dx = (float) (ex / len);
+        float dy = (float) (ey / len);
+        float dz = (float) (ez / len);
+        // tangent frame of the eye on the sky
+        float rx = dz;
+        float rz = -dx;
+        float rl = (float) Math.sqrt(rx * rx + rz * rz);
+        if (rl < 1.0E-4F) {
+            return;
+        }
+        rx /= rl;
+        rz /= rl;
+        float ux = -dy * rz;
+        float uy = dz * rx - dx * rz;
+        float uz = dy * rx;
+        float[] r = {rx, 0.0F, rz};
+        float[] u = {ux, uy, uz};
+        float dist = R * 0.97F;
+        float[] c = {dx * dist, dy * dist, dz * dist};
+
+        // where the eye should look: at the player. Gaze offset = (direction to player) - (resting axis, towards spawn)
+        double ax = com.darkrifts.world.Seal.SPAWN.getX() + 0.5 - EYE_X;
+        double ay = com.darkrifts.world.Seal.SPAWN.getY() - EYE_Y;
+        double az = com.darkrifts.world.Seal.SPAWN.getZ() + 0.5 - EYE_Z;
+        double al = Math.sqrt(ax * ax + ay * ay + az * az);
+        float gx = (float) (-dx - ax / al);
+        float gy = (float) (-dy - ay / al);
+        float gz = (float) (-dz - az / al);
+        float tx = (gx * r[0] + gy * r[1] + gz * r[2]) * 7.0F;
+        float ty = (gx * u[0] + gy * u[1] + gz * u[2]) * 7.0F;
+        // smooth the pupil movement
+        eyeOx += (tx - eyeOx) * 0.12F;
+        eyeOy += (ty - eyeOy) * 0.12F;
+
+        float W = 19.0F;          // half width of the eye (in sky units at distance R)
+        float H = 8.5F;           // half height
+        float phase = time % 170.0F;
+        float lid = phase < 9.0F ? 1.0F - (float) Math.sin(Math.PI * phase / 9.0F) : 1.0F; // blink
+        lid = Math.max(0.04F, lid);
+        float h = H * lid;
+        float breathe = 0.94F + 0.06F * (float) Math.sin(time * 0.05);
+
+        // 1) halo (additive): a soft violet-teal glow around the eye
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        {
+            BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+            int n = 28;
+            for (int k = 0; k < 2; k++) {
+                float s = k == 0 ? 1.9F : 1.35F;
+                float a = (k == 0 ? 0.05F : 0.09F) * breathe;
+                for (int i = 0; i < n; i++) {
+                    float x0 = -W * s + 2.0F * W * s * i / n;
+                    float x1 = -W * s + 2.0F * W * s * (i + 1) / n;
+                    float h0 = lensH(x0, W * s, H * s * 1.5F * lid);
+                    float h1 = lensH(x1, W * s, H * s * 1.5F * lid);
+                    eyeVertex(b, m, c, r, u, x0, -h0, 0.3F, 0.1F, 0.8F, 0.0F);
+                    eyeVertex(b, m, c, r, u, x1, -h1, 0.3F, 0.1F, 0.8F, 0.0F);
+                    eyeVertex(b, m, c, r, u, x1, 0, 0.2F, 0.7F, 0.8F, a);
+                    eyeVertex(b, m, c, r, u, x0, 0, 0.2F, 0.7F, 0.8F, a);
+                    eyeVertex(b, m, c, r, u, x0, 0, 0.2F, 0.7F, 0.8F, a);
+                    eyeVertex(b, m, c, r, u, x1, 0, 0.2F, 0.7F, 0.8F, a);
+                    eyeVertex(b, m, c, r, u, x1, h1, 0.3F, 0.1F, 0.8F, 0.0F);
+                    eyeVertex(b, m, c, r, u, x0, h0, 0.3F, 0.1F, 0.8F, 0.0F);
+                }
+            }
+            BufferUploader.drawWithShader(b.buildOrThrow());
+        }
+
+        // 2) opaque parts: dark rim, sclera, iris, slit pupil
+        RenderSystem.defaultBlendFunc();
+        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        int n = 40;
+        // rim (slightly bigger lens)
+        for (int i = 0; i < n; i++) {
+            float x0 = -W * 1.06F + 2.0F * W * 1.06F * i / n;
+            float x1 = -W * 1.06F + 2.0F * W * 1.06F * (i + 1) / n;
+            float h0 = lensH(x0, W * 1.06F, H * 1.18F * lid + 0.2F);
+            float h1 = lensH(x1, W * 1.06F, H * 1.18F * lid + 0.2F);
+            eyeVertex(b, m, c, r, u, x0, -h0, 0.01F, 0.0F, 0.03F, 1.0F);
+            eyeVertex(b, m, c, r, u, x1, -h1, 0.01F, 0.0F, 0.03F, 1.0F);
+            eyeVertex(b, m, c, r, u, x1, h1, 0.01F, 0.0F, 0.03F, 1.0F);
+            eyeVertex(b, m, c, r, u, x0, h0, 0.01F, 0.0F, 0.03F, 1.0F);
+        }
+        // sclera: bright in the middle, dark violet at the lids and corners
+        for (int i = 0; i < n; i++) {
+            float x0 = -W + 2.0F * W * i / n;
+            float x1 = -W + 2.0F * W * (i + 1) / n;
+            float h0 = lensH(x0, W, h);
+            float h1 = lensH(x1, W, h);
+            float k0 = 1.0F - Math.abs(x0) / W;
+            float k1 = 1.0F - Math.abs(x1) / W;
+            float e0r = 0.10F, e0g = 0.03F, e0b = 0.16F;
+            float m0 = 0.35F + 0.5F * k0;
+            float m1 = 0.35F + 0.5F * k1;
+            eyeVertex(b, m, c, r, u, x0, -h0, e0r, e0g, e0b, 1.0F);
+            eyeVertex(b, m, c, r, u, x1, -h1, e0r, e0g, e0b, 1.0F);
+            eyeVertex(b, m, c, r, u, x1, 0, m1 * 0.85F, m1 * 0.92F, m1, 1.0F);
+            eyeVertex(b, m, c, r, u, x0, 0, m0 * 0.85F, m0 * 0.92F, m0, 1.0F);
+            eyeVertex(b, m, c, r, u, x0, 0, m0 * 0.85F, m0 * 0.92F, m0, 1.0F);
+            eyeVertex(b, m, c, r, u, x1, 0, m1 * 0.85F, m1 * 0.92F, m1, 1.0F);
+            eyeVertex(b, m, c, r, u, x1, h1, e0r, e0g, e0b, 1.0F);
+            eyeVertex(b, m, c, r, u, x0, h0, e0r, e0g, e0b, 1.0F);
+        }
+        // iris (circle clipped by the lids) and pupil (vertical slit)
+        float ri = H * 0.95F;
+        float maxOff = W * 0.55F;
+        float ix = Math.max(-maxOff, Math.min(maxOff, eyeOx * W * 0.5F));
+        float iy = Math.max(-H * 0.2F, Math.min(H * 0.2F, eyeOy * H * 0.5F));
+        float dilate = 0.75F + 0.25F * (float) Math.sin(time * 0.04);
+        int m2 = 36;
+        for (int pass = 0; pass < 2; pass++) {
+            float rad = pass == 0 ? ri : ri * 0.28F * dilate;
+            float halfH = pass == 0 ? ri : ri * 0.98F;
+            float halfW = rad;
+            for (int i = 0; i < m2; i++) {
+                float t0 = -1.0F + 2.0F * i / m2;
+                float t1 = -1.0F + 2.0F * (i + 1) / m2;
+                float x0 = ix + t0 * halfW;
+                float x1 = ix + t1 * halfW;
+                float s0 = (float) Math.sqrt(Math.max(0.0F, 1.0F - t0 * t0)) * halfH;
+                float s1 = (float) Math.sqrt(Math.max(0.0F, 1.0F - t1 * t1)) * halfH;
+                float top0 = Math.min(iy + s0, lensH(x0, W, h));
+                float top1 = Math.min(iy + s1, lensH(x1, W, h));
+                float bot0 = Math.max(iy - s0, -lensH(x0, W, h));
+                float bot1 = Math.max(iy - s1, -lensH(x1, W, h));
+                if (top0 <= bot0 || top1 <= bot1) {
+                    continue;
+                }
+                if (pass == 0) {
+                    float e0 = Math.abs(t0);
+                    float e1 = Math.abs(t1);
+                    // teal at the centre, amber-violet at the edge
+                    eyeVertex(b, m, c, r, u, x0, bot0, 0.55F - 0.45F * (1 - e0), 0.25F + 0.55F * (1 - e0), 0.55F + 0.3F * (1 - e0), 1.0F);
+                    eyeVertex(b, m, c, r, u, x1, bot1, 0.55F - 0.45F * (1 - e1), 0.25F + 0.55F * (1 - e1), 0.55F + 0.3F * (1 - e1), 1.0F);
+                    eyeVertex(b, m, c, r, u, x1, top1, 0.55F - 0.45F * (1 - e1), 0.25F + 0.55F * (1 - e1), 0.55F + 0.3F * (1 - e1), 1.0F);
+                    eyeVertex(b, m, c, r, u, x0, top0, 0.55F - 0.45F * (1 - e0), 0.25F + 0.55F * (1 - e0), 0.55F + 0.3F * (1 - e0), 1.0F);
+                } else {
+                    eyeVertex(b, m, c, r, u, x0, bot0, 0.0F, 0.0F, 0.0F, 1.0F);
+                    eyeVertex(b, m, c, r, u, x1, bot1, 0.0F, 0.0F, 0.0F, 1.0F);
+                    eyeVertex(b, m, c, r, u, x1, top1, 0.0F, 0.0F, 0.0F, 1.0F);
+                    eyeVertex(b, m, c, r, u, x0, top0, 0.0F, 0.0F, 0.0F, 1.0F);
+                }
+            }
+        }
+        BufferUploader.drawWithShader(b.buildOrThrow());
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
     }
 
     /** The big rift in the sky: violet halo, bright rim, then a black core on top. */

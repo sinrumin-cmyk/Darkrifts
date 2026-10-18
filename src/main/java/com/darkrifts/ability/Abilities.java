@@ -27,7 +27,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.EvokerFangs;
+import com.darkrifts.entity.RiftSpike;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -118,9 +118,11 @@ public final class Abilities {
     private static void riftWithSpikes(ServerLevel level, ServerPlayer player, double x, double y, double z,
                                        int delay, RandomSource random) {
         long now = level.getGameTime();
-        RiftBlock.placeDecorColumn(level, BlockPos.containing(x, y, z), 3, now + 45, now + delay, random);
-        level.sendParticles(ParticleTypes.REVERSE_PORTAL, x, y + 0.6, z, 10, 0.25, 0.5, 0.25, 0.12);
-        level.addFreshEntity(new EvokerFangs(level, x, y, z, random.nextFloat() * 360.0F, 10 + delay, player));
+        BlockPos cell = BlockPos.containing(x, Math.floor(y - 1.0E-4) + 1.0, z);
+        RiftBlock.placeGroundCrack(level, cell, y, random.nextDouble() * Math.PI, 1.5 + random.nextDouble() * 0.7,
+                now + 45, now + delay, random);
+        level.sendParticles(ParticleTypes.REVERSE_PORTAL, x, y + 0.15, z, 10, 0.5, 0.1, 0.5, 0.12);
+        level.addFreshEntity(new RiftSpike(level, x, y, z, random.nextFloat() * 360.0F, 10 + delay, player));
     }
 
     private static double groundY(ServerLevel level, double x, double y, double z) {
@@ -128,8 +130,9 @@ public final class Abilities {
         int fy = Mth.floor(y);
         for (int dy = 2; dy >= -4; dy--) {
             m.set(Mth.floor(x), fy + dy, Mth.floor(z));
-            if (!level.getBlockState(m).isAir() && level.getBlockState(m.above()).isAir()) {
-                return m.getY() + 1.0;
+            net.minecraft.world.phys.shapes.VoxelShape shape = level.getBlockState(m).getCollisionShape(level, m);
+            if (!shape.isEmpty() && level.getBlockState(m.above()).isAir()) {
+                return m.getY() + shape.max(net.minecraft.core.Direction.Axis.Y);
             }
         }
         return y;
@@ -253,7 +256,7 @@ public final class Abilities {
             for (int s = -1; s <= 1; s += 2) {
                 double sx = p.x + side.x * 1.0 * s;
                 double sz = p.z + side.z * 1.0 * s;
-                level.addFreshEntity(new EvokerFangs(level, sx, groundY(level, sx, player.getY(), sz), sz,
+                level.addFreshEntity(new RiftSpike(level, sx, groundY(level, sx, player.getY(), sz), sz,
                         random.nextFloat() * 360.0F, 10 + delay, player));
             }
         }

@@ -124,6 +124,35 @@ public class RiftBlock extends BaseEntityBlock {
         placeDecorCells(level, cells, expireAt, birth, random);
     }
 
+    /**
+     * A temporary crack lying flat ON the top face of a block. {@code cell} is the air cell above the block,
+     * {@code y} the exact height of the surface, {@code yaw} the direction of the crack (radians).
+     */
+    public static void placeGroundCrack(LevelAccessor level, BlockPos cell, double y, double yaw, double length,
+                                        long expireAt, long birth, RandomSource random) {
+        if (!level.getBlockState(cell).isAir()) {
+            return;
+        }
+        place(level, cell, null, false, expireAt);
+        if (!(level.getBlockEntity(cell) instanceof RiftBlockEntity rift)) {
+            return;
+        }
+        rift.setDecor(true);
+        rift.setFlat(true);
+        double cx = cell.getX() + 0.5;
+        double cz = cell.getZ() + 0.5;
+        double dx = Math.cos(yaw);
+        double dz = Math.sin(yaw);
+        double h = length / 2.0;
+        double fy = y + 0.06;
+        net.minecraft.world.phys.Vec3 a = new net.minecraft.world.phys.Vec3(cx - dx * h, fy, cz - dz * h);
+        net.minecraft.world.phys.Vec3 b = new net.minecraft.world.phys.Vec3(cx + dx * h, fy, cz + dz * h);
+        double kink = (random.nextDouble() - 0.5) * 0.3;
+        net.minecraft.world.phys.Vec3 m = new net.minecraft.world.phys.Vec3(cx - dz * kink, fy, cz + dx * kink);
+        rift.addSegment(a.x, a.y, a.z, m.x, m.y, m.z, birth, 0.0, length);
+        rift.addSegment(m.x, m.y, m.z, b.x, b.y, b.z, birth, length / 2.0, length);
+    }
+
     /** A permanent vertical tear: {@code height} cells going up from {@code base}. */
     public static void placeColumn(LevelAccessor level, BlockPos base, int height, @Nullable ResourceLocation target,
                                    boolean returning, long expireAt, long birth, RandomSource random) {

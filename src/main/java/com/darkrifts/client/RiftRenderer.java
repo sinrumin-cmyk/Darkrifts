@@ -63,8 +63,9 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         }
 
         List<Strip> strips = new ArrayList<>();
+        boolean flat = be.isFlat();
         for (double[] s : segs) {
-            build(strips, s, time);
+            build(strips, s, time, flat);
         }
         if (strips.isEmpty()) {
             return;
@@ -75,27 +76,27 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         for (Strip st : strips) {
             if (st.crack) {
                 int a = (int) (200 * st.fade);
-                strip(glow, pose, origin, st.p, st.w, cam, 1.0F, 0.0F, 235, 190, 255, a, 0.012);
-                strip(glow, pose, origin, st.p, st.w, cam, 3.0F, 0.01F, 130, 60, 255, (int) (70 * st.fade), 0.02);
+                strip(glow, pose, origin, st.p, st.w, cam, 1.0F, 0.0F, 235, 190, 255, a, 0.012, flat);
+                strip(glow, pose, origin, st.p, st.w, cam, 3.0F, 0.01F, 130, 60, 255, (int) (70 * st.fade), 0.02, flat);
                 continue;
             }
             int haloA = Math.min(255, 40 + (int) (st.flash * 150));
             int rimA = Math.min(255, 150 + (int) (st.flash * 105));
             int rimG = Math.min(255, 150 + (int) (st.flash * 105));
-            strip(glow, pose, origin, st.p, st.w, cam, 2.6F + st.flash * 1.6F, 0.05F, 105, 35, 235, haloA, 0.03);
-            strip(glow, pose, origin, st.p, st.w, cam, 1.35F + st.flash * 0.6F, 0.025F, 225, rimG, 255, rimA, 0.015);
+            strip(glow, pose, origin, st.p, st.w, cam, 2.6F + st.flash * 1.6F, 0.05F, 105, 35, 235, haloA, 0.03, flat);
+            strip(glow, pose, origin, st.p, st.w, cam, 1.35F + st.flash * 0.6F, 0.025F, 225, rimG, 255, rimA, 0.015, flat);
         }
         // Pass 2: the void core.
         VertexConsumer core = buffers.getBuffer(RenderType.endPortal());
         for (Strip st : strips) {
             if (!st.crack) {
-                strip(core, pose, origin, st.p, st.w, cam, 1.0F, 0.0F, -1, 0, 0, 0, 0.0);
+                strip(core, pose, origin, st.p, st.w, cam, 1.0F, 0.0F, -1, 0, 0, 0, 0.0, flat);
             }
         }
     }
 
     /** Computes the strips (main line + opening cracks) for one stored piece of the line. */
-    private static void build(List<Strip> out, double[] s, float time) {
+    private static void build(List<Strip> out, double[] s, float time, boolean flat) {
         Vec3 a = new Vec3(s[0], s[1], s[2]);
         Vec3 b = new Vec3(s[3], s[4], s[5]);
         float age = Math.max(0.0F, time - (float) s[6]);
@@ -113,6 +114,12 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         Vec3 d = dir.normalize();
         Vec3 u1 = d.cross(Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 u2 = d.cross(u1).normalize();
+        if (flat) {
+            // ground crack: jitter only sideways along the ground, never into the block
+            d = new Vec3(d.x, 0, d.z).normalize();
+            u1 = d.cross(new Vec3(0, 1, 0)).normalize();
+            u2 = new Vec3(0, 0, 0);
+        }
 
         float flash = Math.max(0.0F, 1.0F - age / 20.0F);
         float settle = Mth.clamp(age / 12.0F, 0.0F, 1.0F);
@@ -142,7 +149,7 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
             if (total > 0.0) {
                 double x = Mth.clamp(pos / total, 0.0, 1.0);
                 env = Math.max(0.07F, (float) Math.pow(Math.sin(Math.PI * x), 0.8));
-                maxW = Mth.clamp(0.10F + 0.014F * (float) total, 0.15F, 0.38F);
+                maxW = Mth.clamp(0.10F + 0.014F * (float) total, 0.15F, 0.38F) * (flat ? 1.4F : 1.0F);
             } else {
                 env = Mth.clamp(0.07F + (float) pos / 3.0F, 0.07F, 1.0F); // still being drawn
                 maxW = 0.20F;
@@ -162,7 +169,8 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
             for (int k = 0; k < count; k++) {
                 double ang = rand(h, 48 + k * 3) * Math.PI * 2.0;
                 double len = (0.35 + 0.65 * rand(h, 16 + k * 6)) * spread;
-                Vec3 side = u1.scale(Math.cos(ang)).add(u2.scale(Math.sin(ang)));
+                Vec3 side = flat ? u1.scale(Math.cos(ang)).add(d.scale(Math.sin(ang)))
+                        : u1.scale(Math.cos(ang)).add(u2.scale(Math.sin(ang)));
                 Strip c = new Strip();
                 c.crack = true;
                 c.fade = fade;
@@ -176,7 +184,7 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
 
     /** Emits a camera-facing strip along the polyline p; layers are pushed away from the camera by {@code push}. */
     private static void strip(VertexConsumer vc, Matrix4f pose, BlockPos origin, Vec3[] p, float[] w, Vec3 cam,
-                              float scale, float add, int r, int g, int b, int a, double push) {
+                              float scale, float add, int r, int g, int b, int a, double push, boolean flat) {
         int n = p.length;
         Vec3[] left = new Vec3[n];
         Vec3[] right = new Vec3[n];
@@ -187,6 +195,9 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
                 return;
             }
             toCam = toCam.scale(1.0 / dist);
+            if (flat) {
+                toCam = new Vec3(0, 1, 0); // lies on the ground: the ribbon is horizontal, layers stack upwards
+            }
             Vec3 t = p[Math.min(n - 1, i + 1)].subtract(p[Math.max(0, i - 1)]);
             Vec3 side = t.cross(toCam);
             if (side.lengthSqr() < 1.0E-8) {
