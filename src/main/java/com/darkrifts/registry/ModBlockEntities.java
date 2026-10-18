@@ -15,5 +15,9 @@ public final class ModBlockEntities {
     public static final Supplier<BlockEntityType<RiftBlockEntity>> RIFT = BLOCK_ENTITIES.register("rift",
             () -> BlockEntityType.Builder.of(RiftBlockEntity::new, ModBlocks.RIFT.get()).build(null));
 
+    public static final Supplier<BlockEntityType<com.darkrifts.block.RitualAltarBlockEntity>> ALTAR =
+            BLOCK_ENTITIES.register("ritual_altar", () -> BlockEntityType.Builder.of(
+                    com.darkrifts.block.RitualAltarBlockEntity::new, ModBlocks.RITUAL_ALTAR.get()).build(null));
+
     private ModBlockEntities() {}
 }

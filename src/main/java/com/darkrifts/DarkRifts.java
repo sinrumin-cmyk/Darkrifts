@@ -19,6 +19,7 @@ public class DarkRifts {
         com.darkrifts.registry.ModFluids.FLUIDS.register(modBus);
         com.darkrifts.registry.ModEntities.ENTITIES.register(modBus);
         ModBlocks.BLOCKS.register(modBus);
+        com.darkrifts.registry.ModArmorMaterials.MATERIALS.register(modBus);
         ModItems.ITEMS.register(modBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modBus);
         ModFeatures.FEATURES.register(modBus);

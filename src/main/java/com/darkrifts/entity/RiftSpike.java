@@ -54,6 +54,37 @@ public class RiftSpike extends Entity implements GeoEntity {
         this.ownerId = owner.getUUID();
     }
 
+    /** Height of the walkable surface under (x, z), looking from y downwards (a few blocks) and upwards (2 blocks). */
+    public static double surfaceY(Level level, double x, double y, double z) {
+        net.minecraft.core.BlockPos.MutableBlockPos m = new net.minecraft.core.BlockPos.MutableBlockPos();
+        int fy = net.minecraft.util.Mth.floor(y);
+        for (int dy = 2; dy >= -5; dy--) {
+            m.set(net.minecraft.util.Mth.floor(x), fy + dy, net.minecraft.util.Mth.floor(z));
+            net.minecraft.world.phys.shapes.VoxelShape shape = level.getBlockState(m).getCollisionShape(level, m);
+            if (!shape.isEmpty() && level.getBlockState(m.above()).isAir()) {
+                return m.getY() + shape.max(net.minecraft.core.Direction.Axis.Y);
+            }
+        }
+        return y;
+    }
+
+    /** A temporary crack lying on the ground at (x, z). Returns the surface height. */
+    public static double crack(ServerLevel level, double x, double y, double z, int delay, int lifetime) {
+        double sy = surfaceY(level, x, y, z);
+        net.minecraft.core.BlockPos cell = net.minecraft.core.BlockPos.containing(x, Math.floor(sy - 1.0E-4) + 1.0, z);
+        long now = level.getGameTime();
+        com.darkrifts.block.RiftBlock.placeGroundCrack(level, cell, sy, level.getRandom().nextDouble() * Math.PI,
+                1.5 + level.getRandom().nextDouble() * 0.9, now + lifetime, now + delay, level.getRandom());
+        return sy;
+    }
+
+    /** A ground crack and, once it has torn open, a spike bursting out of it. */
+    public static void burst(ServerLevel level, LivingEntity owner, double x, double y, double z, int delay) {
+        double sy = crack(level, x, y, z, delay, 45 + delay);
+        level.sendParticles(ParticleTypes.REVERSE_PORTAL, x, sy + 0.15, z, 10, 0.5, 0.1, 0.5, 0.12);
+        level.addFreshEntity(new RiftSpike(level, x, sy, z, level.getRandom().nextFloat() * 360.0F, 10 + delay, owner));
+    }
+
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(WARMUP, 0);

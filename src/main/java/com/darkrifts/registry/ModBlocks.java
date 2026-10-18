@@ -35,5 +35,14 @@ public final class ModBlocks {
                     .lightLevel(state -> 8)
                     .noLootTable()));
 
+    /** Altar of the ritual that awakens the Rift Reaver. */
+    public static final DeferredBlock<com.darkrifts.block.RitualAltarBlock> RITUAL_ALTAR = BLOCKS.register("ritual_altar",
+            () -> new com.darkrifts.block.RitualAltarBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .strength(35.0F, 1200.0F)
+                    .requiresCorrectToolForDrops()
+                    .lightLevel(state -> 7)
+                    .noOcclusion()));
+
     private ModBlocks() {}
 }

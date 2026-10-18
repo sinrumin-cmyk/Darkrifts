@@ -21,5 +21,14 @@ public final class ModEntities {
                     .noSummon()
                     .build("rift_spike"));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<com.darkrifts.entity.RiftReaver>> RIFT_REAVER =
+            ENTITIES.register("rift_reaver",
+                    () -> EntityType.Builder.<com.darkrifts.entity.RiftReaver>of(com.darkrifts.entity.RiftReaver::new,
+                                    MobCategory.MONSTER)
+                            .sized(1.8F, 3.8F)
+                            .clientTrackingRange(10)
+                            .fireImmune()
+                            .build("rift_reaver"));
+
     private ModEntities() {}
 }

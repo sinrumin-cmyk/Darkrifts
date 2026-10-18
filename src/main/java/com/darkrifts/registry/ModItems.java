@@ -1,7 +1,9 @@
 package com.darkrifts.registry;
 
 import com.darkrifts.DarkRifts;
+import com.darkrifts.item.RiftArmorItem;
 import com.darkrifts.item.RiftBladeItem;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.Items;
@@ -30,6 +32,25 @@ public final class ModItems {
 
     public static final DeferredItem<BucketItem> DARK_WATER_BUCKET = ITEMS.register("dark_water_bucket",
             () -> new BucketItem(ModFluids.SOURCE.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
+
+    public static final DeferredItem<RiftArmorItem> RIFT_HELMET = armor("rift_helmet", ArmorItem.Type.HELMET);
+    public static final DeferredItem<RiftArmorItem> RIFT_CHESTPLATE = armor("rift_chestplate", ArmorItem.Type.CHESTPLATE);
+    public static final DeferredItem<RiftArmorItem> RIFT_LEGGINGS = armor("rift_leggings", ArmorItem.Type.LEGGINGS);
+    public static final DeferredItem<RiftArmorItem> RIFT_BOOTS = armor("rift_boots", ArmorItem.Type.BOOTS);
+
+    public static final DeferredItem<BlockItem> RITUAL_ALTAR = ITEMS.register("ritual_altar",
+            () -> new BlockItem(ModBlocks.RITUAL_ALTAR.get(), new Item.Properties().rarity(Rarity.EPIC)));
+
+    public static final DeferredItem<net.neoforged.neoforge.common.DeferredSpawnEggItem> RIFT_REAVER_SPAWN_EGG =
+            ITEMS.register("rift_reaver_spawn_egg", () -> new net.neoforged.neoforge.common.DeferredSpawnEggItem(
+                    ModEntities.RIFT_REAVER, 0x120824, 0xDC6EFF, new Item.Properties()));
+
+    private static DeferredItem<RiftArmorItem> armor(String name, ArmorItem.Type type) {
+        return ITEMS.register(name, () -> new RiftArmorItem(type, new Item.Properties()
+                .durability(type.getDurability(37))
+                .rarity(Rarity.EPIC)
+                .fireResistant()));
+    }
 
     private ModItems() {}
 }

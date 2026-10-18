@@ -29,6 +29,21 @@ public final class ClientFx {
         return mc.level != null && DarkDimensions.isVoid(mc.level.dimension());
     }
 
+    /** Camera shake: set by the ritual altar and the emerging boss (com.darkrifts.Shake), decays every frame. */
+    @SubscribeEvent
+    public static void cameraShake(ViewportEvent.ComputeCameraAngles event) {
+        float s = com.darkrifts.Shake.value;
+        if (s < 0.002F) {
+            com.darkrifts.Shake.value = 0.0F;
+            return;
+        }
+        float t = (System.nanoTime() / 1_000_000L % 100_000L) / 1000.0F;
+        event.setYaw(event.getYaw() + (float) Math.sin(t * 37.0F) * s * 1.1F);
+        event.setPitch(event.getPitch() + (float) Math.sin(t * 41.0F + 1.3F) * s * 1.1F);
+        event.setRoll(event.getRoll() + (float) Math.sin(t * 29.0F + 2.0F) * s * 1.6F);
+        com.darkrifts.Shake.value = s * 0.9F;
+    }
+
     @SubscribeEvent
     public static void fogColor(ViewportEvent.ComputeFogColor event) {
         if (inVoid()) {
