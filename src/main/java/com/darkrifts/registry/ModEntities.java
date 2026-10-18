@@ -25,8 +25,9 @@ public final class ModEntities {
             ENTITIES.register("rift_reaver",
                     () -> EntityType.Builder.<com.darkrifts.entity.RiftReaver>of(com.darkrifts.entity.RiftReaver::new,
                                     MobCategory.MONSTER)
-                            .sized(1.8F, 3.8F)
-                            .clientTrackingRange(10)
+                            .sized(2.4F, 4.4F)
+                            .clientTrackingRange(12)
+                            .updateInterval(2)
                             .fireImmune()
                             .build("rift_reaver"));
 

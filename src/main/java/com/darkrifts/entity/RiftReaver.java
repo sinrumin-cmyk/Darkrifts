@@ -25,6 +25,8 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -52,19 +54,30 @@ import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
- * The boss of the ritual. It climbs out of a tear in the ground (EMERGE ticks, invulnerable), then fights with a
+ * The boss of the ritual. It tears its way out of a rift in the sky and is lowered to the ground (invulnerable until it lands), then fights with a
  * melee swing and three abilities: ground slam, a line of spikes and a pull. Below half health it goes berserk.
  * Model / animations / textures: geo/animations/textures "rift_reaver" (GeckoLib).
  */
 public class RiftReaver extends Monster implements GeoEntity {
-    public static final int EMERGE_TICKS = 80;
-    private static final double RISE_PER_TICK = 3.0 / EMERGE_TICKS;
+    /** Ticks (since the rift appeared) at which the boss starts to sink through it / lands / the rift is gone. */
+    public static final int DESCENT_START = 50;
+    public static final int LAND_AGE = 170;
+    public static final int RIFT_END_AGE = 200;
+    /** Height of the sky rift above the ground, and the half sizes of the fully open tear (blocks). */
+    public static final double RIFT_HEIGHT = 14.0;
+    public static final float RIFT_A = 4.8F;
+    public static final float RIFT_B = 3.0F;
+    private static final double START_OFFSET = 4.8;
 
-    private static final EntityDataAccessor<Integer> EMERGE =
-            SynchedEntityData.defineId(RiftReaver.class, EntityDataSerializers.INT);
+    /** Game time at which the sky rift appeared; -1 = no rift. Everything about the entrance is a function of this. */
+    private static final EntityDataAccessor<Long> RIFT_START =
+            SynchedEntityData.defineId(RiftReaver.class, EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Float> RIFT_Y =
+            SynchedEntityData.defineId(RiftReaver.class, EntityDataSerializers.FLOAT);
 
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.rift_reaver.idle");
     private static final RawAnimation WALK = RawAnimation.begin().thenLoop("animation.rift_reaver.walk");
+    private static final RawAnimation AMBIENT = RawAnimation.begin().thenLoop("animation.rift_reaver.ambient");
     private static final RawAnimation EMERGE_ANIM = RawAnimation.begin().thenPlayAndHold("animation.rift_reaver.emerge");
     private static final RawAnimation ATTACK = RawAnimation.begin().thenPlay("animation.rift_reaver.attack");
     private static final RawAnimation SLAM = RawAnimation.begin().thenPlay("animation.rift_reaver.slam");
@@ -77,6 +90,9 @@ public class RiftReaver extends Monster implements GeoEntity {
             BossEvent.BossBarColor.PURPLE, BossEvent.BossBarOverlay.NOTCHED_12);
 
     private double groundY;
+    private double anchorX;
+    private double anchorZ;
+    private boolean landed = true;
     private int cooldown = 60;
     private int slamTimer;
     private boolean enraged;
@@ -112,65 +128,166 @@ public class RiftReaver extends Monster implements GeoEntity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
-        builder.define(EMERGE, 0);
+        builder.define(RIFT_START, -1L);
+        builder.define(RIFT_Y, 0.0F);
     }
 
-    // ------------------------------------------------------------------ emerging from the rift
+    // ------------------------------------------------------------------ the entrance: tearing out of a rift in the sky
 
-    /** Call right after creating the boss 3 blocks below {@code ground}: it climbs out over EMERGE_TICKS. */
-    public void startEmerge(double ground) {
+    /**
+     * Call right after creating the boss at (x, riftY + 4.8, z): a rift opens in the sky at {@code riftY}, slowly
+     * widens while the boss tears its way out and is lowered to {@code ground}.
+     */
+    public void startEmerge(double ground, double riftY) {
         this.groundY = ground;
-        entityData.set(EMERGE, EMERGE_TICKS);
+        this.anchorX = getX();
+        this.anchorZ = getZ();
+        this.landed = false;
+        entityData.set(RIFT_Y, (float) riftY);
+        entityData.set(RIFT_START, level().getGameTime());
         if (level() instanceof ServerLevel sl) {
-            sl.playSound(null, getX(), ground, getZ(), SoundEvents.WARDEN_EMERGE, SoundSource.HOSTILE, 4.0F, 0.6F);
+            sl.playSound(null, anchorX, riftY, anchorZ, SoundEvents.END_PORTAL_SPAWN, SoundSource.HOSTILE, 8.0F, 0.5F);
+            sl.playSound(null, anchorX, riftY, anchorZ, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.HOSTILE, 8.0F, 0.45F);
         }
     }
 
+    /** Ticks since the rift appeared (negative if there is none). */
+    public float getRiftAge(float partialTick) {
+        long start = entityData.get(RIFT_START);
+        return start < 0 ? -1.0F : (level().getGameTime() - start) + partialTick;
+    }
+
+    public boolean isRiftActive() {
+        long start = entityData.get(RIFT_START);
+        return start >= 0 && level().getGameTime() - start < RIFT_END_AGE;
+    }
+
+    public double getRiftY() {
+        return entityData.get(RIFT_Y);
+    }
+
     public boolean isEmerging() {
-        return entityData.get(EMERGE) > 0;
+        long start = entityData.get(RIFT_START);
+        return start >= 0 && level().getGameTime() - start < LAND_AGE;
+    }
+
+    /** How open the tear is: 0 = none, a thin slit at first, fully open from ~110 ticks, closing after landing. */
+    public static float riftOpen(float age) {
+        if (age <= 0.0F || age >= RIFT_END_AGE) {
+            return 0.0F;
+        }
+        if (age < 110.0F) {
+            float x = age / 110.0F;
+            return 0.05F + 0.95F * x * x * (3.0F - 2.0F * x);
+        }
+        if (age <= LAND_AGE) {
+            return 1.0F;
+        }
+        float x = (age - LAND_AGE) / (RIFT_END_AGE - LAND_AGE);
+        return 1.0F - x * x * (3.0F - 2.0F * x);
     }
 
     @Override
     public void tick() {
-        int em = entityData.get(EMERGE);
-        if (em > 0) {
-            noPhysics = true;
-            setNoGravity(true);
-            setDeltaMovement(Vec3.ZERO);
-            if (level() instanceof ServerLevel sl) {
-                setPos(getX(), getY() + RISE_PER_TICK, getZ());
-                emergeFx(sl, em);
-                entityData.set(EMERGE, em - 1);
-                if (em - 1 == 0) {
-                    finishEmerge(sl);
+        long start = entityData.get(RIFT_START);
+        if (start >= 0) {
+            long age = level().getGameTime() - start;
+            if (age < LAND_AGE) {
+                noPhysics = true;
+                setNoGravity(true);
+                setDeltaMovement(Vec3.ZERO);
+                fallDistance = 0.0F;
+                if (level() instanceof ServerLevel sl) {
+                    double top = entityData.get(RIFT_Y) + START_OFFSET;
+                    double p = Mth.clamp((age - DESCENT_START) / (double) (LAND_AGE - DESCENT_START), 0.0, 1.0);
+                    double eased = p * p * (3.0 - 2.0 * p);
+                    setPos(anchorX, Mth.lerp(eased, top, groundY), anchorZ);
+                    emergeFx(sl, (int) age);
+                } else {
+                    Player near = level().getNearestPlayer(this, 56.0);
+                    if (near != null) {
+                        float open = riftOpen(age);
+                        Shake.add((0.25F + 0.75F * open) * (float) Mth.clamp(1.0 - near.distanceTo(this) / 56.0, 0.15, 1.0));
+                    }
                 }
-            } else {
-                Shake.add(0.5F + 0.5F * (1.0F - em / (float) EMERGE_TICKS));
+            } else if (level() instanceof ServerLevel sl) {
+                if (!landed) {
+                    land(sl);
+                }
+                if (age >= RIFT_END_AGE) {
+                    entityData.set(RIFT_START, -1L);
+                }
+            } else if (noPhysics) {
+                noPhysics = false; // client: the entrance is over
+                setNoGravity(false);
             }
         }
         super.tick();
     }
 
-    private void emergeFx(ServerLevel sl, int em) {
-        double gy = groundY + 0.15;
-        sl.sendParticles(ParticleTypes.REVERSE_PORTAL, getX(), gy, getZ(), 6, 0.9, 0.2, 0.9, 0.15);
-        sl.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.OBSIDIAN.defaultBlockState()),
-                getX(), gy, getZ(), 8, 1.0, 0.1, 1.0, 0.25);
-        sl.sendParticles(VIOLET, getX(), gy + 0.5, getZ(), 4, 0.9, 0.6, 0.9, 0.0);
-        if (em % 20 == 0) {
-            sl.playSound(null, getX(), gy, getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 1.5F, 0.5F);
+    private void emergeFx(ServerLevel sl, int age) {
+        double ry = entityData.get(RIFT_Y);
+        float open = riftOpen(age);
+        double a = RIFT_A * open;
+        double b = RIFT_B * Math.pow(open, 0.8);
+        // sparks and void matter along the torn rim
+        for (int i = 0; i < 3; i++) {
+            double ang = random.nextDouble() * Math.PI * 2.0;
+            double px = anchorX + Math.cos(ang) * a * 1.02;
+            double pz = anchorZ + Math.sin(ang) * b * 1.02;
+            sl.sendParticles(ParticleTypes.REVERSE_PORTAL, px, ry, pz, 2, 0.15, 0.1, 0.15, 0.08);
+            if (random.nextInt(2) == 0) {
+                sl.sendParticles(ParticleTypes.END_ROD, px, ry - 0.1, pz, 1, 0.05, 0.05, 0.05, 0.02);
+            }
+            if (random.nextInt(3) == 0) {
+                sl.sendParticles(VIOLET, px, ry - 0.3, pz, 1, 0.1, 0.1, 0.1, 0.0);
+            }
         }
-        if (em % 10 == 0) {
-            double a = random.nextDouble() * Math.PI * 2.0;
-            double r = 2.0 + random.nextDouble() * 3.0;
-            RiftSpike.crack(sl, getX() + Math.cos(a) * r, groundY, getZ() + Math.sin(a) * r, 0, 50);
+        // debris falling out of the tear
+        if (age % 2 == 0) {
+            sl.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.OBSIDIAN.defaultBlockState()),
+                    anchorX + (random.nextDouble() - 0.5) * a * 1.6, ry - 0.2, anchorZ + (random.nextDouble() - 0.5) * b * 1.6,
+                    2, 0.3, 0.0, 0.3, 0.0);
+        }
+        // the sound of reality being torn
+        if (age % 14 == 3 && age < 140) {
+            sl.playSound(null, anchorX, ry, anchorZ, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.HOSTILE, 5.0F, 0.5F);
+            sl.playSound(null, anchorX, ry, anchorZ, SoundEvents.WARDEN_TENDRIL_CLICKS, SoundSource.HOSTILE, 5.0F, 0.6F);
+        }
+        if (age == DESCENT_START) {
+            sl.playSound(null, anchorX, ry, anchorZ, SoundEvents.WARDEN_EMERGE, SoundSource.HOSTILE, 8.0F, 0.6F);
+        }
+        if (age >= DESCENT_START && age < LAND_AGE) {
+            sl.sendParticles(ParticleTypes.REVERSE_PORTAL, getX(), getY() + 2.0, getZ(), 4, 0.8, 1.6, 0.8, 0.1);
+            sl.sendParticles(VIOLET, getX(), getY() + 2.0, getZ(), 2, 0.9, 1.7, 0.9, 0.0);
+        }
+        // lightning flashes from the tear down to the ground
+        if (age % 18 == 6 && age < 150) {
+            LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(sl);
+            if (bolt != null) {
+                bolt.moveTo(anchorX + (random.nextDouble() - 0.5) * 12.0, groundY, anchorZ + (random.nextDouble() - 0.5) * 12.0);
+                bolt.setVisualOnly(true);
+                sl.addFreshEntity(bolt);
+            }
+        }
+        // cracks spreading on the ground below
+        if (age % 10 == 0 && age >= 20 && age < 160) {
+            double ang = random.nextDouble() * Math.PI * 2.0;
+            double r = 2.0 + random.nextDouble() * 4.0;
+            RiftSpike.crack(sl, anchorX + Math.cos(ang) * r, groundY, anchorZ + Math.sin(ang) * r, 0, 50);
         }
     }
 
-    private void finishEmerge(ServerLevel sl) {
+    /** The boss touches the ground: roar, shockwave, spikes, title. */
+    private void land(ServerLevel sl) {
+        landed = true;
         noPhysics = false;
         setNoGravity(false);
+        setPos(anchorX, groundY, anchorZ);
+        triggerAnim("action", "slam");
         sl.playSound(null, getX(), getY(), getZ(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.HOSTILE, 6.0F, 0.55F);
+        sl.playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 6.0F, 0.5F);
+        sl.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY() + 0.5, getZ(), 2, 1.5, 0.2, 1.5, 0.0);
         RiftWaves.start(sl, position().add(0, 0.5, 0), 12.0);
         for (int i = 0; i < 8; i++) {
             double a = i * Math.PI / 4.0;
@@ -408,13 +525,14 @@ public class RiftReaver extends Monster implements GeoEntity {
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "main", 3, this::mainAnimation));
+        controllers.add(new AnimationController<>(this, "ambient", 0, state -> state.setAndContinue(AMBIENT)));
         controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
                 .triggerableAnim("attack", ATTACK)
                 .triggerableAnim("slam", SLAM));
     }
 
     private PlayState mainAnimation(AnimationState<RiftReaver> state) {
-        if (entityData.get(EMERGE) > 0) {
+        if (isEmerging()) {
             return state.setAndContinue(EMERGE_ANIM);
         }
         return state.setAndContinue(state.isMoving() ? WALK : IDLE);
@@ -431,8 +549,12 @@ public class RiftReaver extends Monster implements GeoEntity {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         enraged = tag.getBoolean("Enraged");
-        entityData.set(EMERGE, tag.getInt("Emerge"));
+        entityData.set(RIFT_START, tag.contains("RiftStart") ? tag.getLong("RiftStart") : -1L);
+        entityData.set(RIFT_Y, tag.getFloat("RiftY"));
         groundY = tag.getDouble("GroundY");
+        anchorX = tag.getDouble("AnchorX");
+        anchorZ = tag.getDouble("AnchorZ");
+        landed = !tag.contains("Landed") || tag.getBoolean("Landed");
         if (enraged) {
             getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.33);
         }
@@ -445,7 +567,11 @@ public class RiftReaver extends Monster implements GeoEntity {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("Enraged", enraged);
-        tag.putInt("Emerge", entityData.get(EMERGE));
+        tag.putLong("RiftStart", entityData.get(RIFT_START));
+        tag.putFloat("RiftY", entityData.get(RIFT_Y));
         tag.putDouble("GroundY", groundY);
+        tag.putDouble("AnchorX", anchorX);
+        tag.putDouble("AnchorZ", anchorZ);
+        tag.putBoolean("Landed", landed);
     }
 }

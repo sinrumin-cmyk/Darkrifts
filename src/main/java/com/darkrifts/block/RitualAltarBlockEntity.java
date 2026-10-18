@@ -277,21 +277,17 @@ public class RitualAltarBlockEntity extends BlockEntity {
         double cx = worldPosition.getX() + 0.5;
         double cz = worldPosition.getZ() + 0.5;
         double y0 = worldPosition.getY();
-        long now = sl.getGameTime();
         ServerPlayer starterPlayer = starter == null ? null : sl.getServer().getPlayerList().getPlayer(starter);
         BlockPos pos = worldPosition;
 
         // the altar is consumed
         sl.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
 
-        // the tear it leaves behind
-        RiftBlock.placeDecorColumn(sl, pos, 6, now + 90, now, rnd);
-
-        // the boss climbs out of it
+        // a rift tears open in the sky above the altar; the boss will claw its way out of it
         RiftReaver boss = ModEntities.RIFT_REAVER.get().create(sl);
         if (boss != null) {
-            boss.moveTo(cx, y0 - 3.0, cz, rnd.nextFloat() * 360.0F, 0.0F);
-            boss.startEmerge(y0);
+            boss.moveTo(cx, y0 + RiftReaver.RIFT_HEIGHT + 4.8, cz, rnd.nextFloat() * 360.0F, 0.0F);
+            boss.startEmerge(y0, y0 + RiftReaver.RIFT_HEIGHT);
             sl.addFreshEntity(boss);
         }
 

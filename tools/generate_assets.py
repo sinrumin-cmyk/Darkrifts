@@ -524,128 +524,11 @@ def make_armor():
 
 
 # --------------------------------------------------------------------------- boss: Rift Reaver (GeckoLib)
-REAVER_CUBES = {
-    # name: (origin, size, uv)
-    "body": [((-8, 24, -4), (16, 20, 8), (0, 0)),
-             ((-1, 38, 4), (2, 8, 3), (0, 96)), ((-1, 28, 4), (2, 8, 3), (0, 96)), ((-1, 18, 4), (2, 6, 3), (0, 96))],
-    "head": [((-5, 44, -5), (10, 10, 10), (0, 32)),
-             ((-6, 53, -1), (2, 9, 2), (48, 32)), ((4, 53, -1), (2, 9, 2), (48, 32)),
-             ((-4, 57, -6), (8, 2, 2), (48, 32))],
-    "arm_r": [((-14, 24, -3), (6, 20, 6), (64, 0)), ((-15, 16, -4), (8, 8, 8), (64, 28)),
-              ((-14, 4, -1), (2, 12, 2), (96, 28)), ((-11, 4, -1), (2, 12, 2), (96, 28))],
-    "arm_l": [((8, 24, -3), (6, 20, 6), (96, 0)), ((7, 16, -4), (8, 8, 8), (64, 28)),
-              ((8, 4, -1), (2, 12, 2), (96, 28)), ((11, 4, -1), (2, 12, 2), (96, 28))],
-    "leg_r": [((-7, 4, -3), (6, 20, 6), (0, 64)), ((-8, 0, -6), (8, 4, 10), (64, 64))],
-    "leg_l": [((1, 4, -3), (6, 20, 6), (32, 64)), ((0, 0, -6), (8, 4, 10), (64, 64))],
-}
-REAVER_PIVOTS = {"body": (0, 24, 0), "head": (0, 44, 0), "arm_r": (-10, 42, 0), "arm_l": (10, 42, 0),
-                 "leg_r": (-4, 24, 0), "leg_l": (4, 24, 0)}
-
-
 def make_reaver_assets():
-    bones = [{"name": "root", "pivot": [0, 0, 0]}]
-    for name, cubes in REAVER_CUBES.items():
-        parent = "root" if name in ("body", "leg_r", "leg_l") else "body"
-        bones.append({
-            "name": name, "parent": parent, "pivot": list(REAVER_PIVOTS[name]),
-            "cubes": [{"origin": list(o), "size": list(sz), "uv": list(uv)} for (o, sz, uv) in cubes],
-        })
-    write_json("assets/%s/geo/entity/rift_reaver.geo.json" % MOD, {
-        "format_version": "1.12.0",
-        "minecraft:geometry": [{
-            "description": {"identifier": "geometry.rift_reaver", "texture_width": 128, "texture_height": 128,
-                            "visible_bounds_width": 6, "visible_bounds_height": 6, "visible_bounds_offset": [0, 2, 0]},
-            "bones": bones}],
-    })
-
-    def kf(d):
-        return {("%.4f" % k).rstrip("0").rstrip("."): v for k, v in d.items()}
-
-    P = "animation.rift_reaver."
-    anims = {
-        P + "idle": {"loop": True, "animation_length": 4.0, "bones": {
-            "body": {"position": kf({0: [0, 0, 0], 2.0: [0, -0.6, 0], 4.0: [0, 0, 0]}),
-                     "rotation": kf({0: [0, 0, 0], 2.0: [2.5, 0, 0], 4.0: [0, 0, 0]})},
-            "head": {"rotation": kf({0: [0, 0, 0], 1.0: [0, 6, 0], 3.0: [0, -6, 0], 4.0: [0, 0, 0]})},
-            "arm_r": {"rotation": kf({0: [0, 0, 4], 2.0: [6, 0, 9], 4.0: [0, 0, 4]})},
-            "arm_l": {"rotation": kf({0: [0, 0, -4], 2.0: [6, 0, -9], 4.0: [0, 0, -4]})}}},
-        P + "walk": {"loop": True, "animation_length": 1.0, "bones": {
-            "leg_r": {"rotation": kf({0: [32, 0, 0], 0.5: [-32, 0, 0], 1.0: [32, 0, 0]})},
-            "leg_l": {"rotation": kf({0: [-32, 0, 0], 0.5: [32, 0, 0], 1.0: [-32, 0, 0]})},
-            "arm_r": {"rotation": kf({0: [-26, 0, 6], 0.5: [26, 0, 6], 1.0: [-26, 0, 6]})},
-            "arm_l": {"rotation": kf({0: [26, 0, -6], 0.5: [-26, 0, -6], 1.0: [26, 0, -6]})},
-            "body": {"position": kf({0: [0, 0, 0], 0.25: [0, -1.2, 0], 0.5: [0, 0, 0], 0.75: [0, -1.2, 0], 1.0: [0, 0, 0]}),
-                     "rotation": kf({0: [6, 3, 0], 0.5: [6, -3, 0], 1.0: [6, 3, 0]})},
-            "head": {"rotation": kf({0: [-4, -3, 0], 0.5: [-4, 3, 0], 1.0: [-4, -3, 0]})}}},
-        P + "attack": {"loop": "play_once", "animation_length": 0.7, "bones": {
-            "arm_r": {"rotation": kf({0: [0, 0, 6], 0.25: [-130, 0, 10], 0.4: [35, 0, 0], 0.7: [0, 0, 6]})},
-            "body": {"rotation": kf({0: [0, 0, 0], 0.25: [-8, 14, 0], 0.4: [18, -12, 0], 0.7: [0, 0, 0]})},
-            "head": {"rotation": kf({0: [0, 0, 0], 0.25: [-12, 0, 0], 0.4: [14, 0, 0], 0.7: [0, 0, 0]})}}},
-        P + "slam": {"loop": "play_once", "animation_length": 1.2, "bones": {
-            "arm_r": {"rotation": kf({0: [0, 0, 6], 0.55: [-170, 0, 14], 0.7: [-170, 0, 14], 0.82: [25, 0, 0], 1.2: [0, 0, 6]})},
-            "arm_l": {"rotation": kf({0: [0, 0, -6], 0.55: [-170, 0, -14], 0.7: [-170, 0, -14], 0.82: [25, 0, 0], 1.2: [0, 0, -6]})},
-            "body": {"position": kf({0: [0, 0, 0], 0.55: [0, 1.5, 0], 0.82: [0, -3, 0], 1.2: [0, 0, 0]}),
-                     "rotation": kf({0: [0, 0, 0], 0.55: [-14, 0, 0], 0.82: [24, 0, 0], 1.2: [0, 0, 0]})},
-            "head": {"rotation": kf({0: [0, 0, 0], 0.55: [-20, 0, 0], 0.82: [12, 0, 0], 1.2: [0, 0, 0]})}}},
-        P + "emerge": {"loop": "hold_on_last_frame", "animation_length": 4.0, "bones": {
-            "arm_r": {"rotation": kf({0: [-175, 0, 20], 2.4: [-175, 0, 20], 3.4: [-20, 0, 8], 4.0: [0, 0, 4]})},
-            "arm_l": {"rotation": kf({0: [-175, 0, -20], 2.4: [-175, 0, -20], 3.4: [-20, 0, -8], 4.0: [0, 0, -4]})},
-            "head": {"rotation": kf({0: [-35, 0, 0], 2.6: [-35, 0, 0], 3.2: [-40, 0, 0], 3.6: [10, 0, 0], 4.0: [0, 0, 0]})},
-            "body": {"rotation": kf({0: [-10, 0, 0], 2.6: [-10, 0, 0], 3.4: [12, 0, 0], 4.0: [0, 0, 0]})}}},
-    }
-    write_json("assets/%s/animations/entity/rift_reaver.animation.json" % MOD,
-               {"format_version": "1.8.0", "animations": anims})
-
-    # textures
-    img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
-    glow = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
-    seed = 100
-    for name, cubes in REAVER_CUBES.items():
-        for (o, sz, uv) in cubes:
-            w, h, d = sz
-            seed += 1
-            _paint_rect(img, uv[0], uv[1], 2 * (w + d), h + d, seed)
-    # glowing eyes (front of the head: uv (0,32), d=10 -> front starts at x=10, y=42)
-    for ex in (12, 16):
-        for ey in (45, 46):
-            for dx in range(2):
-                img.putpixel((ex + dx, ey), (255, 230, 255, 255))
-                glow.putpixel((ex + dx, ey), (255, 230, 255, 255))
-    # glowing rift in the chest (front of the body: uv (0,0), d=8 -> x 8..24, y 8..28)
-    import random
-    rnd = random.Random(5)
-    cx = 16
-    for y in range(11, 26):
-        cx = min(21, max(11, cx + rnd.choice([-1, 0, 0, 1])))
-        for dx in (0, 1):
-            img.putpixel((cx + dx, y), (222, 120, 255, 255))
-            glow.putpixel((cx + dx, y), (222, 120, 255, 255))
-        img.putpixel((cx - 1, y), (120, 60, 220, 255))
-        glow.putpixel((cx - 1, y), (120, 60, 220, 255))
-    # glowing veins on the arms (front faces of the upper arms)
-    for (ux, uy) in ((64, 0), (96, 0)):
-        for y in range(uy + 8, uy + 26, 2):
-            x = ux + 6 + (y % 3)
-            img.putpixel((x, y), (205, 110, 255, 255))
-            glow.putpixel((x, y), (205, 110, 255, 255))
-    path = os.path.join(RES, "assets", MOD, "textures", "entity")
-    os.makedirs(path, exist_ok=True)
-    img.save(os.path.join(path, "rift_reaver.png"))
-    glow.save(os.path.join(path, "rift_reaver_glowmask.png"))
-
-    write_json("data/%s/loot_table/entities/rift_reaver.json" % MOD, {
-        "type": "minecraft:entity",
-        "pools": [
-            {"rolls": 1, "entries": [{"type": "minecraft:item", "name": "minecraft:nether_star"}]},
-            {"rolls": {"type": "minecraft:uniform", "min": 4, "max": 8},
-             "entries": [{"type": "minecraft:item", "name": "minecraft:echo_shard"}]},
-            {"rolls": {"type": "minecraft:uniform", "min": 1, "max": 3},
-             "entries": [{"type": "minecraft:item", "name": "minecraft:ender_pearl"}]},
-            {"rolls": {"type": "minecraft:uniform", "min": 2, "max": 4},
-             "entries": [{"type": "minecraft:item", "name": "minecraft:netherite_scrap"}]},
-        ],
-    })
-    write_json("assets/%s/models/item/rift_reaver_spawn_egg.json" % MOD, {"parent": "minecraft:item/template_spawn_egg"})
+    """Model, animations, texture and loot of the boss live in tools/reaver_model.py."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import reaver_model
+    reaver_model.build(RES, MOD, write_json)
 
 
 # --------------------------------------------------------------------------- ritual altar + codex book
@@ -658,7 +541,7 @@ BOOK_EN = [
     "\u00a75Rift Armor\u00a7r\n\nNetherite piece + 3 Echo Shards + Eye of Ender.\n\nFull set: no fall damage, magic damage halved, Speed I.",
     "\u00a75Ritual Altar\u00a7r\n\nCraft: 6 Obsidian, 1 Crying Obsidian, 2 Echo Shards (shards on top corners, crying obsidian between them).\nPlace it on open ground.",
     "\u00a75The Ritual\u00a7r\n\nRight Click the altar with a Nether Star. For twelve seconds the world shakes, runes burn and rifts open. Stay back, and keep the sky above the altar clear.",
-    "\u00a75Rift Reaver\u00a7r\n\nThe altar is consumed and the Reaver climbs out of the tear. It slams the ground, calls spikes and drags you in. At half health it goes berserk.",
+    "\u00a75Rift Reaver\u00a7r\n\nThe altar is consumed and a rift opens in the sky. The Reaver tears its way out of it. It slams the ground, calls spikes and drags you in. At half health it goes berserk.",
     "\u00a75Spoils\u00a7r\n\nThe Reaver drops a Nether Star, Echo Shards, Ender Pearls and Netherite Scrap.\n\nGood luck, rift-walker.",
 ]
 BOOK_RU = [
@@ -670,7 +553,7 @@ BOOK_RU = [
     "\u00a75Броня разломов\u00a7r\n\nНезеритовая деталь + 3 эхо-осколка + глаз Края.\n\nПолный сет: нет урона от падения, магический урон вдвое меньше, Скорость I.",
     "\u00a75Алтарь ритуала\u00a7r\n\nКрафт: 6 обсидиана, 1 плачущий обсидиан, 2 эхо-осколка (осколки сверху по углам, плачущий обсидиан между ними).\nПоставь на открытой земле.",
     "\u00a75Ритуал\u00a7r\n\nПКМ по алтарю со звездой Нижнего мира. Двенадцать секунд мир дрожит, руны горят, открываются разломы. Отойди и не загораживай небо над алтарём.",
-    "\u00a75Жнец разлома\u00a7r\n\nАлтарь поглощается, и Жнец вылезает из трещины. Он бьёт по земле, вызывает шипы и затягивает тебя. На половине здоровья впадает в ярость.",
+    "\u00a75Жнец разлома\u00a7r\n\nАлтарь поглощается, в небе раскрывается разлом, и Жнец рвёт себе выход. Он бьёт по земле, вызывает шипы и затягивает тебя. На половине здоровья впадает в ярость.",
     "\u00a75Трофеи\u00a7r\n\nС Жнеца падают звезда Нижнего мира, эхо-осколки, жемчуг Края и незеритовый лом.\n\nУдачи, ходящий по разломам.",
 ]
 
