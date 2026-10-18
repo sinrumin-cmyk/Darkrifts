@@ -12,6 +12,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
@@ -24,6 +26,18 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.RIFT.get(), RiftRenderer::new);
+    }
+
+    /** Both dark realms use the "no vanilla sky" effects; SkyRenderer draws the real one. */
+    @SubscribeEvent
+    public static void registerSky(RegisterDimensionSpecialEffectsEvent event) {
+        event.register(ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, "dark_sky"), new DarkSkyEffects());
+        event.register(ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, "void_sky"), new DarkSkyEffects());
+    }
+
+    @SubscribeEvent
+    public static void registerKeys(RegisterKeyMappingsEvent event) {
+        event.register(AbilityKeys.OPEN);
     }
 
     /** Dark water uses the vanilla water textures, tinted nearly black. */

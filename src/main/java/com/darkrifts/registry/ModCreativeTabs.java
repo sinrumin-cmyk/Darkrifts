@@ -20,6 +20,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.RIFT_BLADE.get());
                         output.accept(ModItems.RIFT_BLOCK.get());
                         output.accept(ModItems.DARK_WATER_BUCKET.get());
+                        output.accept(ModItems.VOID_MATTER.get());
                     })
                     .build());
 

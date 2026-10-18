@@ -17,6 +17,8 @@ from PIL import Image
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RES = os.path.join(ROOT, "src", "main", "resources")
 MOD = "darkrifts"
+ABILITY_EN = {'ability.darkrifts.rift': 'Rift', 'ability.darkrifts.rift.desc': 'Hold Right Click and drag your view to tear a rift', 'ability.darkrifts.spikes': 'Rift Spikes', 'ability.darkrifts.spikes.desc': 'Rifts open around you and spikes burst out', 'ability.darkrifts.step': 'Rift Step', 'ability.darkrifts.step.desc': 'Dash forward through a tear', 'ability.darkrifts.pull': 'Collapse', 'ability.darkrifts.pull.desc': 'Pulls enemies into a point in front of you', 'ability.darkrifts.cloak': 'Void Cloak', 'ability.darkrifts.cloak.desc': 'Invisible, shielded, nearby mobs go blind', 'message.darkrifts.ability_selected': 'Ability: %s', 'tooltip.darkrifts.rift_blade.3': 'Press R to choose an ability.', 'key.darkrifts.abilities': 'Rift Blade abilities', 'key.categories.darkrifts': 'Dark Rifts'}
+ABILITY_RU = {'ability.darkrifts.rift': 'Разлом', 'ability.darkrifts.rift.desc': 'Зажми ПКМ и веди взглядом, чтобы разорвать пространство', 'ability.darkrifts.spikes': 'Шипы разлома', 'ability.darkrifts.spikes.desc': 'Вокруг открываются разломы, из них бьют шипы', 'ability.darkrifts.step': 'Шаг сквозь разлом', 'ability.darkrifts.step.desc': 'Мгновенный рывок вперёд', 'ability.darkrifts.pull': 'Коллапс', 'ability.darkrifts.pull.desc': 'Втягивает врагов в точку перед тобой', 'ability.darkrifts.cloak': 'Покров тьмы', 'ability.darkrifts.cloak.desc': 'Невидимость, щит, ближайшие мобы слепнут', 'message.darkrifts.ability_selected': 'Способность: %s', 'tooltip.darkrifts.rift_blade.3': 'Нажми R, чтобы выбрать способность.', 'key.darkrifts.abilities': 'Способности клинка разломов', 'key.categories.darkrifts': 'Тёмные разломы'}
 
 
 def write_json(rel_path, data):
@@ -125,6 +127,31 @@ def make_sword_texture():
     img.save(path)
 
 
+def make_void_texture():
+    """Animated starry 'end portal' matter (16x128, 8 frames, seamless)."""
+    import math, random
+    F = 8
+    img = Image.new("RGBA", (16, 16 * F))
+    rnd = random.Random(7)
+    stars = [(rnd.randrange(16), rnd.randrange(16), rnd.random() * 6.28,
+              rnd.choice([(120, 255, 255), (230, 150, 255), (255, 255, 255)])) for _ in range(14)]
+    tau = 2 * math.pi / 16
+    for f in range(F):
+        ph = f * 2 * math.pi / F
+        for y in range(16):
+            for x in range(16):
+                v = (math.sin(tau * x + ph) + math.sin(tau * (y * 2) - ph)
+                     + math.sin(tau * (x + y) + 2 * ph) + math.sin(tau * (x * 2 - y) - ph)) / 4.0
+                k = (v + 1) / 2
+                img.putpixel((x, f * 16 + y), (int(6 + 14 * k), int(8 + 34 * k), int(20 + 52 * k), 255))
+        for (sx, sy, sp, col) in stars:
+            a = 0.25 + 0.75 * (0.5 + 0.5 * math.sin(ph + sp))
+            img.putpixel((sx, f * 16 + sy), (int(col[0] * a), int(col[1] * a), int(col[2] * a), 255))
+    path = os.path.join(RES, "assets", MOD, "textures", "block", "void_matter.png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.save(path)
+
+
 def make_bucket_texture():
     """Bucket of dark water (16x16)."""
     O = (8, 6, 16, 255)
@@ -205,6 +232,34 @@ def make_client_assets():
         "block.%s.dark_water" % MOD: "Тёмная вода",
         "item.%s.dark_water_bucket" % MOD: "Ведро тёмной воды",
     }
+    write_json("data/%s/dimension_type/void_prison.json" % MOD, {
+        "ultrawarm": False, "natural": False, "coordinate_scale": 1.0, "has_skylight": False,
+        "has_ceiling": False, "ambient_light": 0.12, "fixed_time": 18000,
+        "monster_spawn_light_level": 0, "monster_spawn_block_light_limit": 0,
+        "piglin_safe": False, "bed_works": False, "respawn_anchor_works": False, "has_raids": False,
+        "logical_height": 64, "min_y": 0, "height": 64,
+        "infiniburn": "#minecraft:infiniburn_overworld", "effects": "%s:void_sky" % MOD,
+    })
+    write_json("data/%s/dimension/void_prison.json" % MOD, {
+        "type": "%s:void_prison" % MOD,
+        "generator": {"type": "minecraft:flat", "settings": {
+            "biome": "minecraft:the_void", "features": False, "lakes": False,
+            "layers": [{"block": "%s:void_matter" % MOD, "height": 4}],
+            "structure_overrides": []}},
+    })
+    write_json("assets/%s/blockstates/void_matter.json" % MOD,
+               {"variants": {"": {"model": "%s:block/void_matter" % MOD}}})
+    write_json("assets/%s/models/block/void_matter.json" % MOD,
+               {"parent": "minecraft:block/cube_all", "textures": {"all": "%s:block/void_matter" % MOD}})
+    write_json("assets/%s/models/item/void_matter.json" % MOD, {"parent": "%s:block/void_matter" % MOD})
+    write_json("assets/%s/textures/block/void_matter.png.mcmeta" % MOD,
+               {"animation": {"frametime": 5, "interpolate": True}})
+    en.update({'message.darkrifts.not_your_seal': 'Only the one who sealed this player can lift the seal', 'message.darkrifts.not_sealed': 'This player is not sealed'})
+    ru.update({'message.darkrifts.not_your_seal': 'Печать может снять только тот, кто её наложил', 'message.darkrifts.not_sealed': 'Этот игрок не запечатан'})
+    en.update(ABILITY_EN)
+    ru.update(ABILITY_RU)
+    en.update({'ability.darkrifts.seal': 'Void Seal', 'ability.darkrifts.seal.desc': 'Seals the target in the void. A sealed player respawns there forever', 'message.darkrifts.no_target': 'No target in sight', 'message.darkrifts.sealed': '%s is sealed in the void', 'message.darkrifts.you_are_sealed': 'The void seal holds you', 'message.darkrifts.seal_removed': 'The seal is gone', 'block.darkrifts.void_matter': 'Void Matter', 'dimension.darkrifts.void_prison': 'Void Prison'})
+    ru.update({'ability.darkrifts.seal': 'Печать пустоты', 'ability.darkrifts.seal.desc': 'Запечатывает цель в пустоте. Игрок возрождается там вечно', 'message.darkrifts.no_target': 'Нет цели', 'message.darkrifts.sealed': '%s запечатан в пустоте', 'message.darkrifts.you_are_sealed': 'Печать пустоты держит тебя', 'message.darkrifts.seal_removed': 'Печать снята', 'block.darkrifts.void_matter': 'Материя пустоты', 'dimension.darkrifts.void_prison': 'Тюрьма пустоты'})
     write_json("assets/%s/blockstates/dark_water.json" % MOD,
                {"variants": {"": {"model": "%s:block/dark_water" % MOD}}})
     write_json("assets/%s/models/block/dark_water.json" % MOD,
@@ -240,7 +295,7 @@ DIM_TYPE = {
     "min_y": -64,
     "height": 384,
     "infiniburn": "#minecraft:infiniburn_overworld",
-    "effects": "minecraft:overworld",
+    "effects": "darkrifts:dark_sky",
 }
 
 
@@ -299,6 +354,7 @@ if __name__ == "__main__":
     make_rift_texture()
     make_sword_texture()
     make_bucket_texture()
+    make_void_texture()
     make_client_assets()
     make_dimension()
     make_worldgen_and_recipe()

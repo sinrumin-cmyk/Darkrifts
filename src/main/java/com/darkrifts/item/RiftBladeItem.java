@@ -1,6 +1,8 @@
 package com.darkrifts.item;
 
 import com.darkrifts.Config;
+import com.darkrifts.ability.Abilities;
+import com.darkrifts.ability.Ability;
 import com.darkrifts.DarkDimensions;
 import com.darkrifts.block.RiftBlock;
 import com.darkrifts.world.RiftWaves;
@@ -75,6 +77,13 @@ public class RiftBladeItem extends SwordItem {
         }
         if (player.getCooldowns().isOnCooldown(this)) {
             return InteractionResultHolder.fail(stack);
+        }
+        Ability ability = level.isClientSide() ? Abilities.clientSelected : Abilities.selected(player);
+        if (ability != Ability.RIFT) {
+            if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer sp) {
+                Abilities.cast(ability, serverLevel, sp, stack, hand);
+            }
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
         }
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(stack);
@@ -322,6 +331,7 @@ public class RiftBladeItem extends SwordItem {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.1").withStyle(ChatFormatting.DARK_PURPLE));
         tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.3").withStyle(ChatFormatting.LIGHT_PURPLE));
         super.appendHoverText(stack, context, tooltip, flag);
     }
 }

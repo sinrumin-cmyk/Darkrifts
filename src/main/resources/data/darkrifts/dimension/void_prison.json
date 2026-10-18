@@ -1,0 +1,18 @@
+{
+  "type": "darkrifts:void_prison",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:the_void",
+      "features": false,
+      "lakes": false,
+      "layers": [
+        {
+          "block": "darkrifts:void_matter",
+          "height": 4
+        }
+      ],
+      "structure_overrides": []
+    }
+  }
+}

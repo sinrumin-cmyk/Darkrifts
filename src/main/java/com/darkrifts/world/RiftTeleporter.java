@@ -38,6 +38,12 @@ public final class RiftTeleporter {
         if (!entity.isAlive() || entity.isRemoved() || entity.level() != from) {
             return;
         }
+        if (Seal.isSealed(entity)) {
+            if (entity instanceof ServerPlayer sealed) {
+                sealed.displayClientMessage(Component.translatable("message.darkrifts.you_are_sealed"), true);
+            }
+            return;
+        }
         if (rift.isReturning()) {
             goHome(entity, from);
         } else {

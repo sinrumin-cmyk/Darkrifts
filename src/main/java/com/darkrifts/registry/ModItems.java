@@ -25,6 +25,9 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> RIFT_BLOCK = ITEMS.register("rift",
             () -> new BlockItem(ModBlocks.RIFT.get(), new Item.Properties().rarity(Rarity.EPIC)));
 
+    public static final DeferredItem<BlockItem> VOID_MATTER = ITEMS.register("void_matter",
+            () -> new BlockItem(ModBlocks.VOID_MATTER.get(), new Item.Properties()));
+
     public static final DeferredItem<BucketItem> DARK_WATER_BUCKET = ITEMS.register("dark_water_bucket",
             () -> new BucketItem(ModFluids.SOURCE.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
 

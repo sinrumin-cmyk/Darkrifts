@@ -24,8 +24,19 @@ public final class ClientFx {
         return mc.level != null && DarkDimensions.isDark(mc.level.dimension());
     }
 
+    private static boolean inVoid() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.level != null && DarkDimensions.isVoid(mc.level.dimension());
+    }
+
     @SubscribeEvent
     public static void fogColor(ViewportEvent.ComputeFogColor event) {
+        if (inVoid()) {
+            event.setRed(0.0F);
+            event.setGreen(0.012F);
+            event.setBlue(0.02F);
+            return;
+        }
         if (!inMirror()) {
             return;
         }
@@ -42,6 +53,14 @@ public final class ClientFx {
 
     @SubscribeEvent
     public static void fogDensity(ViewportEvent.RenderFog event) {
+        if (inVoid() && event.getCamera().getFluidInCamera() == FogType.NONE
+                && event.getMode() == FogRenderer.FogMode.FOG_TERRAIN) {
+            event.setNearPlaneDistance(8.0F);
+            event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), 56.0F));
+            event.setFogShape(FogShape.SPHERE);
+            event.setCanceled(true);
+            return;
+        }
         if (!inMirror()) {
             return;
         }

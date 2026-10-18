@@ -14,7 +14,18 @@ public final class DarkDimensions {
     public static final int COUNT = 1;
     public static final ResourceLocation MIRROR = ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, "mirror");
 
+    /** The void prison: a flat world of "end portal" matter under a starry void sky. See world/Seal. */
+    public static final ResourceLocation VOID = ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, "void_prison");
+
     private DarkDimensions() {}
+
+    public static ResourceKey<Level> voidKey() {
+        return key(VOID);
+    }
+
+    public static boolean isVoid(ResourceKey<Level> key) {
+        return key.location().equals(VOID);
+    }
 
     public static ResourceLocation id(int index) {
         return MIRROR;
