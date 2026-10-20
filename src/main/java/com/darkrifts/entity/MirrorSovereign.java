@@ -177,6 +177,26 @@ public class MirrorSovereign extends RiftReaver {
         return false;
     }
 
+    /** Explosions (and everything else) set the velocity directly, so knockback resistance is not enough. */
+    @Override
+    public void setDeltaMovement(Vec3 motion) {
+        if (landed && !isEmerging()) {
+            super.setDeltaMovement(Vec3.ZERO);
+        } else {
+            super.setDeltaMovement(motion);
+        }
+    }
+
+    @Override
+    public void push(double x, double y, double z) {
+        // never pushed
+    }
+
+    @Override
+    public void knockback(double strength, double x, double z) {
+        // never knocked back
+    }
+
     // ------------------------------------------------------------------ fighting
 
     @Override
@@ -190,6 +210,11 @@ public class MirrorSovereign extends RiftReaver {
             enterPhase(sl, 2);
         } else if (phase == 2 && hp < 0.33F) {
             enterPhase(sl, 3);
+        }
+        // belt and braces: if anything ever moved it, put it back on its hover point
+        if (landed && (Math.abs(getX() - anchorX) > 0.05 || Math.abs(getY() - groundY) > 0.05 || Math.abs(getZ() - anchorZ) > 0.05)) {
+            setPos(anchorX, groundY, anchorZ);
+            hurtMarked = true;
         }
         tickRings(sl);
         tickBeams(sl);

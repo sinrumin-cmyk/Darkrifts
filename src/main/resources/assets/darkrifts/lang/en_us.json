@@ -108,5 +108,16 @@
   "message.darkrifts.sovereign_sub": "Ruler of the Dark Mirror",
   "message.darkrifts.sovereign_phase2": "THE SOVEREIGN RISES",
   "message.darkrifts.sovereign_phase3": "THE MIRROR SHATTERS",
-  "message.darkrifts.sovereign_dead": "THE SOVEREIGN FALLS"
+  "message.darkrifts.sovereign_dead": "THE SOVEREIGN FALLS",
+  "ability.darkrifts.lance": "Void Lance",
+  "ability.darkrifts.lance.desc": "Ranged: a piercing beam that cuts through every enemy on the line",
+  "ability.darkrifts.singularity": "Singularity",
+  "ability.darkrifts.singularity.desc": "Ranged: a black hole drags enemies in, then collapses",
+  "ability.darkrifts.whirl": "Rift Whirl",
+  "ability.darkrifts.whirl.desc": "Melee: the blade spins around you, cutting everything close",
+  "ability.darkrifts.cross": "Cross Rend",
+  "ability.darkrifts.cross.desc": "Melee: two crossing cuts tear an X in front of you",
+  "ability.darkrifts.slam": "Rift Slam",
+  "ability.darkrifts.slam.desc": "Melee: leap up and smash down, spikes burst from the ground",
+  "entity.darkrifts.singularity": "Singularity"
 }

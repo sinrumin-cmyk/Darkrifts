@@ -1,7 +1,10 @@
 package com.darkrifts.ability;
 
 import com.darkrifts.block.RiftBlock;
+import com.darkrifts.entity.Singularity;
+import com.darkrifts.world.RiftFx;
 import com.darkrifts.world.RiftWaves;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import com.darkrifts.world.Seal;
@@ -82,6 +85,11 @@ public final class Abilities {
             case STRIKE -> strike(level, player);
             case DRAIN -> drain(level, player);
             case SHIELD -> shield(level, player);
+            case LANCE -> lance(level, player);
+            case SINGULARITY -> singularity(level, player);
+            case WHIRL -> whirl(level, player);
+            case CROSS -> cross(level, player);
+            case SLAM -> slam(level, player);
             default -> false;
         };
         if (!ok) {
@@ -155,6 +163,12 @@ public final class Abilities {
             if (level.noCollision(player, player.getBoundingBox().move(x - player.getX(), y - player.getY(), z - player.getZ()))) {
                 Vec3 from = player.position().add(0, 1, 0);
                 trail(level, from, new Vec3(x, y + 1, z));
+                // the tear you leave behind and the one you arrive through
+                ring(level, player.position(), 1.1, 18, 0.1, VIOLET_DUST);
+                ring(level, player.position(), 0.6, 12, 1.0, VOID_DUST);
+                level.sendParticles(ParticleTypes.REVERSE_PORTAL, from.x, from.y, from.z, 40, 0.3, 0.8, 0.3, 0.25);
+                ring(level, new Vec3(x, y, z), 1.4, 22, 0.1, VIOLET_DUST);
+                RiftWaves.start(level, new Vec3(x, y + 0.5, z), 3.0);
                 level.playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 0.6F);
                 player.teleportTo(x, y, z);
                 player.fallDistance = 0.0F;
@@ -290,6 +304,18 @@ public final class Abilities {
         RiftBlock.placeDecorCells(level, cells, now + 22, now, level.getRandom());
         level.playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 1.8F);
         trail(level, start, end);
+        // a bright cut: crescents of light racing along the line, a big one at the blade
+        Vec3 tilt = basis(look)[0].scale(Math.cos(0.5)).add(basis(look)[1].scale(Math.sin(0.5)));
+        crescent(level, start, look, tilt, 2.8);
+        for (double t = 2.5; t < length; t += 2.6) {
+            final double at = t;
+            schedule(level, (int) (t / 2.6), () -> crescent(level, start.add(look.scale(at)), look, tilt, Math.max(1.0, 2.2 - at * 0.08)));
+        }
+        schedule(level, 5, () -> {
+            level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+            level.sendParticles(ParticleTypes.END_ROD, end.x, end.y, end.z, 24, 0.2, 0.2, 0.2, 0.35);
+            RiftWaves.start(level, end, 3.0);
+        });
 
         AABB box = new AABB(start, end).inflate(2.0);
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
@@ -325,6 +351,22 @@ public final class Abilities {
         Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
         level.sendParticles(ParticleTypes.REVERSE_PORTAL, c.x, c.y, c.z, 30, 0.4, 0.7, 0.4, 0.3);
         RiftWaves.start(level, c, 3.5);
+        // the column of void and the rings spreading from the impact
+        Vec3 base = target.position();
+        for (int i = 0; i < 26; i++) {
+            level.sendParticles(i % 2 == 0 ? VIOLET_DUST : VOID_DUST, base.x, base.y + i * 0.5, base.z, 2, 0.25, 0.1, 0.25, 0.0);
+            if (i % 3 == 0) {
+                level.sendParticles(ParticleTypes.END_ROD, base.x, base.y + i * 0.5, base.z, 1, 0.1, 0.1, 0.1, 0.03);
+            }
+        }
+        for (int r = 1; r <= 4; r++) {
+            final int rr = r;
+            schedule(level, r * 2, () -> {
+                ring(level, base, rr * 1.0, 10 + rr * 6, 0.15, rr % 2 == 0 ? VOID_DUST : VIOLET_DUST);
+                level.sendParticles(ParticleTypes.CRIT, base.x, base.y + 0.3, base.z, 8, rr * 0.6, 0.1, rr * 0.6, 0.2);
+            });
+        }
+        RiftFx.screen(level, base, 20.0, 0.8F, 0.25F, 0xE0B0FF);
         return true;
     }
 
@@ -343,8 +385,19 @@ public final class Abilities {
             LivingEntity e = victims.get(i);
             e.hurt(level.damageSources().indirectMagic(player, player), 4.0F);
             player.heal(2.0F);
-            trail(level, e.position().add(0, e.getBbHeight() * 0.5, 0), player.position().add(0, 1.0, 0));
+            Vec3 from = e.position().add(0, e.getBbHeight() * 0.5, 0);
+            Vec3 to = player.position().add(0, 1.0, 0);
+            trail(level, from, to);
+            Vec3 d = to.subtract(from);
+            for (int k = 0; k < 5; k++) {
+                Vec3 q = from.add(d.scale(k / 5.0));
+                level.sendParticles(ParticleTypes.SCULK_SOUL, q.x, q.y, q.z, 0, d.x * 0.04, d.y * 0.04 + 0.02, d.z * 0.04, 1.0);
+            }
+            ring(level, e.position(), 0.9, 12, 0.1, VOID_DUST);
+            level.sendParticles(ParticleTypes.SOUL, e.getX(), e.getY() + 0.5, e.getZ(), 6, 0.3, 0.5, 0.3, 0.05);
         }
+        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1.0, player.getZ(), 14, 0.4, 0.6, 0.4, 0.05);
+        ring(level, player.position(), 1.0, 16, 0.1, VIOLET_DUST);
         level.playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_STARE, SoundSource.PLAYERS, 0.6F, 1.5F);
         return true;
     }
@@ -466,5 +519,359 @@ public final class Abilities {
         level.sendParticles(VOID_DUST, c.x, c.y, c.z, 40, 0.6, 0.9, 0.6, 0.0);
         RiftWaves.start(level, c, 6.0);
         return true;
+    }
+
+    // ------------------------------------------------------------------ shared fx helpers
+
+    private static void schedule(ServerLevel level, int delay, Runnable task) {
+        MinecraftServer server = level.getServer();
+        server.tell(new TickTask(server.getTickCount() + delay, task));
+    }
+
+    /** Two unit vectors perpendicular to dir (and to each other): {side, up}. */
+    private static Vec3[] basis(Vec3 dir) {
+        Vec3 ref = Math.abs(dir.y) > 0.95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+        Vec3 side = dir.cross(ref).normalize();
+        Vec3 up = side.cross(dir).normalize();
+        return new Vec3[]{side, up};
+    }
+
+    private static void ring(ServerLevel level, Vec3 c, double radius, int count, double yOff, ParticleOptions p) {
+        for (int i = 0; i < count; i++) {
+            double a = i * (Math.PI * 2.0 / count);
+            level.sendParticles(p, c.x + Math.cos(a) * radius, c.y + yOff, c.z + Math.sin(a) * radius, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /** A temporary real rift tearing along the segment a-b (the same rift the Rift Blade draws). */
+    private static void decorLine(ServerLevel level, Vec3 a, Vec3 b, int lifetime) {
+        java.util.List<BlockPos> cells = new java.util.ArrayList<>();
+        BlockPos last = null;
+        Vec3 d = b.subtract(a);
+        int steps = (int) (d.length() * 2.0) + 1;
+        for (int i = 0; i <= steps; i++) {
+            BlockPos cell = BlockPos.containing(a.add(d.scale(i / (double) steps)));
+            if (!cell.equals(last)) {
+                cells.add(cell);
+                last = cell;
+            }
+        }
+        long now = level.getGameTime();
+        RiftBlock.placeDecorCells(level, cells, now + lifetime, now, level.getRandom());
+    }
+
+    /** A temporary real rift lying on the ground. */
+    private static void groundCrack(ServerLevel level, double x, double y, double z, double yaw, double len, int lifetime) {
+        double gy = groundY(level, x, y, z);
+        BlockPos cell = BlockPos.containing(x, Math.floor(gy - 1.0E-4) + 1.0, z);
+        long now = level.getGameTime();
+        RiftBlock.placeGroundCrack(level, cell, gy, yaw, len, now + lifetime, now, level.getRandom());
+    }
+
+    private static void sendMotion(ServerPlayer player) {
+        player.hurtMarked = true;
+    }
+
+    /** A curved cut bulging forward: a crescent of light in the plane spanned by look and tilt. */
+    private static void crescent(ServerLevel level, Vec3 origin, Vec3 look, Vec3 tilt, double radius) {
+        for (int i = -12; i <= 12; i++) {
+            double a = i / 12.0 * 1.2;
+            Vec3 p = origin.add(look.scale(Math.cos(a) * radius * 0.7)).add(tilt.scale(Math.sin(a) * radius));
+            level.sendParticles(Math.abs(i) % 2 == 0 ? VIOLET_DUST : VOID_DUST, p.x, p.y, p.z, 1, 0.03, 0.03, 0.03, 0.0);
+            level.sendParticles(ParticleTypes.END_ROD, p.x, p.y, p.z, 0, look.x * 0.2, look.y * 0.2, look.z * 0.2, 1.0);
+            if (i % 6 == 0) {
+                level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0, 0, 0, 0);
+            }
+        }
+    }
+
+    private static void line(ServerLevel level, Vec3 a, Vec3 b) {
+        int steps = Math.max(2, (int) (a.distanceTo(b) * 4.0));
+        for (int i = 0; i <= steps; i++) {
+            Vec3 p = a.lerp(b, i / (double) steps);
+            level.sendParticles(ParticleTypes.END_ROD, p.x, p.y, p.z, 1, 0.02, 0.02, 0.02, 0.01);
+            level.sendParticles(i % 2 == 0 ? VIOLET_DUST : VOID_DUST, p.x, p.y, p.z, 1, 0.05, 0.05, 0.05, 0.0);
+        }
+    }
+
+    private static List<LivingEntity> enemiesAround(ServerLevel level, ServerPlayer player, Vec3 c, double r) {
+        return level.getEntitiesOfClass(LivingEntity.class, new AABB(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r),
+                e -> e != player && e.isAlive() && !e.isAlliedTo(player) && e.position().distanceToSqr(c) <= r * r);
+    }
+
+    // ------------------------------------------------------------------ lance (ranged)
+
+    private static boolean lance(ServerLevel level, ServerPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+        double length = 32.0;
+        BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(look.scale(length)),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        if (hit.getType() != HitResult.Type.MISS) {
+            length = Math.max(2.0, eye.distanceTo(hit.getLocation()));
+        }
+        final double len = length;
+        final Vec3 end = eye.add(look.scale(len));
+        final Vec3 start = eye.add(look.scale(0.8)).add(0, -0.25, 0);
+        final Vec3[] b = basis(look);
+
+        decorLine(level, start, end, 20);
+        level.playSound(null, player.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 0.9F, 1.5F);
+        level.sendParticles(ParticleTypes.FLASH, start.x, start.y, start.z, 1, 0, 0, 0, 0);
+        RiftWaves.start(level, start, 2.5);
+
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(eye, end).inflate(2.0),
+                t -> t != player && t.isAlive() && !t.isAlliedTo(player))) {
+            if (distToSegment(e.getBoundingBox().getCenter(), eye, end) <= 1.3) {
+                e.hurt(level.damageSources().indirectMagic(player, player), 14.0F);
+                e.addEffect(new MobEffectInstance(MobEffects.GLOWING, 100, 0));
+                e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 1));
+                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(),
+                        16, 0.3, 0.4, 0.3, 0.4);
+            }
+        }
+        // the beam is drawn travelling away from you, 4 blocks per tick
+        int segs = (int) Math.ceil(len / 4.0);
+        for (int sIdx = 0; sIdx < segs; sIdx++) {
+            final double t0 = sIdx * 4.0;
+            final double t1 = Math.min(len, (sIdx + 1) * 4.0);
+            schedule(level, sIdx, () -> {
+                for (double t = t0; t < t1; t += 0.3) {
+                    Vec3 p = start.add(look.scale(t));
+                    level.sendParticles(ParticleTypes.END_ROD, p.x, p.y, p.z, 1, 0.02, 0.02, 0.02, 0.0);
+                    double ang = t * 2.2;
+                    Vec3 off = b[0].scale(Math.cos(ang) * 0.55).add(b[1].scale(Math.sin(ang) * 0.55));
+                    level.sendParticles(VIOLET_DUST, p.x + off.x, p.y + off.y, p.z + off.z, 1, 0, 0, 0, 0);
+                    level.sendParticles(VOID_DUST, p.x - off.x, p.y - off.y, p.z - off.z, 1, 0, 0, 0, 0);
+                    if (((int) (t / 0.3)) % 5 == 0) {
+                        level.sendParticles(ParticleTypes.REVERSE_PORTAL, p.x, p.y, p.z, 2, 0.15, 0.15, 0.15, 0.1);
+                    }
+                }
+            });
+        }
+        schedule(level, segs, () -> {
+            level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+            level.sendParticles(ParticleTypes.END_ROD, end.x, end.y, end.z, 30, 0.2, 0.2, 0.2, 0.4);
+            level.sendParticles(ParticleTypes.EXPLOSION, end.x, end.y, end.z, 2, 0.3, 0.3, 0.3, 0.0);
+            RiftWaves.start(level, end, 4.0);
+            level.playSound(null, BlockPos.containing(end), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.5F, 1.7F);
+        });
+        return true;
+    }
+
+    // ------------------------------------------------------------------ singularity (ranged)
+
+    private static boolean singularity(ServerLevel level, ServerPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+        double range = 28.0;
+        LivingEntity target = findTarget(level, player, range);
+        final Vec3 c;
+        if (target != null) {
+            c = target.position().add(0, target.getBbHeight() * 0.5, 0);
+        } else {
+            BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(look.scale(range)),
+                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+            c = hit.getType() == HitResult.Type.MISS ? eye.add(look.scale(range)) : hit.getLocation().add(0, 1.4, 0);
+        }
+        trail(level, eye.add(look.scale(0.6)).add(0, -0.2, 0), c);
+        level.playSound(null, player.blockPosition(), SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0F, 0.6F);
+        // a real black hole (solid sphere + violet disc, see SingularityRenderer) with a crack in the ground under it
+        groundCrack(level, c.x, c.y, c.z, level.getRandom().nextDouble() * Math.PI, 3.0, Singularity.DURATION + 10);
+        level.addFreshEntity(new Singularity(level, c, player));
+        return true;
+    }
+
+    // ------------------------------------------------------------------ whirl (melee)
+
+    private static boolean whirl(ServerLevel level, ServerPlayer player) {
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 0.6F);
+        level.playSound(null, player.blockPosition(), SoundEvents.ENDER_DRAGON_FLAP, SoundSource.PLAYERS, 1.0F, 1.4F);
+        final int ticks = 12;
+        for (int i = 0; i < ticks; i++) {
+            final int f = i;
+            schedule(level, i, () -> whirlTick(level, player, f, ticks));
+        }
+        return true;
+    }
+
+    private static void whirlTick(ServerLevel level, ServerPlayer player, int f, int ticks) {
+        if (!player.isAlive() || player.isRemoved() || player.level() != level) {
+            return;
+        }
+        Vec3 c = player.position();
+        double step = Math.PI * 4.0 / ticks;            // two full turns
+        double y = 1.0 + Math.sin(f * 0.5) * 0.3;
+        for (int blade = 0; blade < 2; blade++) {
+            for (int j = 0; j < 9; j++) {
+                double a = f * step - j * 0.16 + blade * Math.PI;
+                double rr = 3.4 + (j == 0 ? 0.3 : 0.0);
+                double x = c.x + Math.cos(a) * rr;
+                double z = c.z + Math.sin(a) * rr;
+                level.sendParticles(j < 3 ? VIOLET_DUST : VOID_DUST, x, c.y + y, z, 1, 0.02, 0.02, 0.02, 0.0);
+                if (j == 0) {
+                    level.sendParticles(ParticleTypes.END_ROD, x, c.y + y, z, 1, 0.05, 0.05, 0.05, 0.02);
+                    if (f % 2 == 0) {
+                        level.sendParticles(ParticleTypes.SWEEP_ATTACK, x, c.y + y, z, 1, 0, 0, 0, 0);
+                    }
+                }
+            }
+        }
+        ring(level, c, 2.2, 14, 0.1, VOID_DUST);
+        if (f == 0) {
+            RiftWaves.start(level, c.add(0, 0.5, 0), 5.0);
+            // a ring of real rifts is cut into the ground under the blades
+            for (int i = 0; i < 8; i++) {
+                double ang = i * Math.PI / 4.0;
+                groundCrack(level, c.x + Math.cos(ang) * 3.2, c.y, c.z + Math.sin(ang) * 3.2, ang + Math.PI / 2.0, 2.2, 26);
+            }
+        }
+        if (f == 3 || f == 7 || f == 11) {
+            for (LivingEntity e : enemiesAround(level, player, c.add(0, 1.0, 0), 4.2)) {
+                e.hurt(level.damageSources().indirectMagic(player, player), 6.0F);
+                Vec3 away = e.position().subtract(c);
+                away = away.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : new Vec3(away.x, 0, away.z).normalize();
+                e.setDeltaMovement(away.x * 0.8, 0.3, away.z * 0.8);
+                e.hurtMarked = true;
+                level.sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 10, 0.3, 0.4, 0.3, 0.3);
+            }
+            level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8F, 0.8F + f * 0.03F);
+        }
+        if (f == ticks - 1) {
+            ring(level, c, 4.0, 40, 0.15, VIOLET_DUST);
+            level.sendParticles(ParticleTypes.END_ROD, c.x, c.y + 1.0, c.z, 30, 1.5, 0.5, 1.5, 0.3);
+        }
+    }
+
+    // ------------------------------------------------------------------ cross (melee)
+
+    private static boolean cross(ServerLevel level, ServerPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+        double dist = 3.2;
+        BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(look.scale(dist)),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        if (hit.getType() != HitResult.Type.MISS) {
+            dist = Math.max(1.2, eye.distanceTo(hit.getLocation()) - 0.3);
+        }
+        final Vec3 center = eye.add(look.scale(dist));
+        final Vec3[] b = basis(look);
+        final double half = 3.4;
+        final Vec3 d1 = b[0].scale(-1).add(b[1]).normalize();
+        final Vec3 d2 = b[0].add(b[1]).normalize();
+
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.3F);
+        line(level, center.subtract(d1.scale(half)), center.add(d1.scale(half)));
+        decorLine(level, center.subtract(d1.scale(half)), center.add(d1.scale(half)), 24);
+        schedule(level, 3, () -> {
+            decorLine(level, center.subtract(d2.scale(half)), center.add(d2.scale(half)), 22);
+            level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 1.7F);
+            line(level, center.subtract(d2.scale(half)), center.add(d2.scale(half)));
+        });
+        schedule(level, 4, () -> {
+            level.sendParticles(ParticleTypes.FLASH, center.x, center.y, center.z, 1, 0, 0, 0, 0);
+            level.sendParticles(ParticleTypes.END_ROD, center.x, center.y, center.z, 40, 0.3, 0.3, 0.3, 0.5);
+            level.sendParticles(ParticleTypes.REVERSE_PORTAL, center.x, center.y, center.z, 40, 0.4, 0.4, 0.4, 0.4);
+            for (int k = 0; k < 4; k++) {
+                Vec3 tip = center.add((k % 2 == 0 ? d1 : d2).scale(k < 2 ? half : -half));
+                level.sendParticles(ParticleTypes.SWEEP_ATTACK, tip.x, tip.y, tip.z, 1, 0, 0, 0, 0);
+            }
+            RiftWaves.start(level, center, 5.0);
+            RiftFx.screen(level, center, 18.0, 0.6F, 0.2F, 0xFFFFFF);
+            level.playSound(null, BlockPos.containing(center), SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 0.5F);
+            for (LivingEntity e : enemiesAround(level, player, center, 3.8)) {
+                e.hurt(level.damageSources().indirectMagic(player, player), 15.0F);
+                e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 0));
+                e.setDeltaMovement(look.x * 0.9, 0.3, look.z * 0.9);
+                e.hurtMarked = true;
+            }
+        });
+        return true;
+    }
+
+    // ------------------------------------------------------------------ slam (melee)
+
+    private static boolean slam(ServerLevel level, ServerPlayer player) {
+        Vec3 look = player.getLookAngle();
+        Vec3 flat = new Vec3(look.x, 0, look.z);
+        flat = flat.lengthSqr() < 1.0E-4 ? Vec3.ZERO : flat.normalize();
+        player.setDeltaMovement(flat.x * 0.7, 1.05, flat.z * 0.7);
+        player.fallDistance = 0.0F;
+        sendMotion(player);
+        level.playSound(null, player.blockPosition(), SoundEvents.ENDER_DRAGON_FLAP, SoundSource.PLAYERS, 1.0F, 0.8F);
+        level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 0.2, player.getZ(), 30, 0.4, 0.1, 0.4, 0.2);
+        ring(level, player.position(), 1.3, 20, 0.1, VIOLET_DUST);
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean(false);
+        for (int i = 3; i <= 44; i++) {
+            final int f = i;
+            schedule(level, i, () -> slamTick(level, player, f, done));
+        }
+        return true;
+    }
+
+    private static void slamTick(ServerLevel level, ServerPlayer player, int f, java.util.concurrent.atomic.AtomicBoolean done) {
+        if (done.get()) {
+            return;
+        }
+        if (!player.isAlive() || player.isRemoved() || player.level() != level) {
+            done.set(true);
+            return;
+        }
+        player.fallDistance = 0.0F;
+        level.sendParticles(VIOLET_DUST, player.getX(), player.getY() + 0.1, player.getZ(), 4, 0.3, 0.1, 0.3, 0.0);
+        level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 0.5, player.getZ(), 3, 0.3, 0.5, 0.3, 0.1);
+        if (f == 9) {
+            Vec3 m = player.getDeltaMovement();
+            player.setDeltaMovement(m.x * 0.3, -2.0, m.z * 0.3);
+            sendMotion(player);
+            level.playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 0.5F);
+        }
+        if ((f >= 11 && player.onGround()) || f == 44) {
+            done.set(true);
+            slamImpact(level, player);
+        }
+    }
+
+    private static void slamImpact(ServerLevel level, ServerPlayer player) {
+        RandomSource random = level.getRandom();
+        Vec3 c = player.position();
+        player.fallDistance = 0.0F;
+        level.playSound(null, player.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.2F, 0.6F);
+        level.playSound(null, player.blockPosition(), SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0F, 0.7F);
+        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.3, c.z, 1, 0, 0, 0, 0);
+        level.sendParticles(ParticleTypes.FLASH, c.x, c.y + 0.5, c.z, 1, 0, 0, 0, 0);
+        RiftWaves.start(level, c.add(0, 0.5, 0), 9.0);
+        RiftFx.screen(level, c, 30.0, 1.8F, 0.4F, 0xE0C0FF);
+        for (LivingEntity e : enemiesAround(level, player, c.add(0, 1.0, 0), 6.5)) {
+            e.hurt(level.damageSources().indirectMagic(player, player), 13.0F);
+            Vec3 away = e.position().subtract(c);
+            away = away.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : new Vec3(away.x, 0, away.z).normalize();
+            e.setDeltaMovement(away.x * 1.1, 0.7, away.z * 1.1);
+            e.hurtMarked = true;
+        }
+        // a shockwave ring racing outwards, then real rifts with spikes
+        for (int r = 1; r <= 7; r++) {
+            final int rr = r;
+            schedule(level, r, () -> {
+                ring(level, c, rr, 12 + rr * 5, 0.15, rr % 2 == 0 ? VOID_DUST : VIOLET_DUST);
+                level.sendParticles(ParticleTypes.CRIT, c.x, c.y + 0.3, c.z, 8, rr * 0.6, 0.1, rr * 0.6, 0.2);
+            });
+        }
+        // the ground splits: a star of long cracks around the landing point
+        groundCrack(level, c.x, c.y, c.z, random.nextDouble() * Math.PI, 3.0, 50);
+        for (int i = 0; i < 6; i++) {
+            double ang = i * Math.PI / 3.0 + random.nextDouble() * 0.4;
+            groundCrack(level, c.x + Math.cos(ang) * 1.8, c.y, c.z + Math.sin(ang) * 1.8, ang, 3.2, 50);
+        }
+        double[] radii = {3.0, 5.5};
+        int[] counts = {6, 9};
+        for (int ring = 0; ring < radii.length; ring++) {
+            for (int i = 0; i < counts[ring]; i++) {
+                double ang = (i + ring * 0.5) * (Math.PI * 2.0 / counts[ring]);
+                double x = c.x + Math.cos(ang) * radii[ring];
+                double z = c.z + Math.sin(ang) * radii[ring];
+                riftWithSpikes(level, player, x, groundY(level, x, c.y, z), z, 2 + ring * 2 + random.nextInt(3), random);
+            }
+        }
     }
 }

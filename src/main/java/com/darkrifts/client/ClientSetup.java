@@ -4,6 +4,7 @@ import com.darkrifts.DarkRifts;
 import com.darkrifts.registry.ModBlockEntities;
 import com.darkrifts.registry.ModFluids;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.resources.ResourceLocation;
@@ -38,6 +39,7 @@ public final class ClientSetup {
         event.registerBlockEntityRenderer(ModBlockEntities.SANCTUM_TOWER.get(), SanctumTowerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SANCTUM_CORE.get(), SanctumCoreRenderer::new);
         event.registerEntityRenderer(com.darkrifts.registry.ModEntities.MIRROR_SOVEREIGN.get(), MirrorSovereignRenderer::new);
+        event.registerEntityRenderer(com.darkrifts.registry.ModEntities.SINGULARITY.get(), SingularityRenderer::new);
     }
 
     /** The 3D Rift armor (horns, pauldrons, spikes): see RiftArmorModels / the generated RiftArmorParts. */
@@ -106,6 +108,19 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void clientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
+            // Custom bows need their own "pull"/"pulling" item properties, otherwise the draw textures never show.
+            ItemProperties.register(com.darkrifts.registry.ModItems.MIRROR_BOW.get(),
+                    ResourceLocation.withDefaultNamespace("pull"),
+                    (stack, level, entity, seed) -> {
+                        if (entity == null || entity.getUseItem() != stack) {
+                            return 0.0F;
+                        }
+                        return entity.getTicksUsingItem() / 20.0F;
+                    });
+            ItemProperties.register(com.darkrifts.registry.ModItems.MIRROR_BOW.get(),
+                    ResourceLocation.withDefaultNamespace("pulling"),
+                    (stack, level, entity, seed) ->
+                            entity != null && entity.isUsingItem() && entity.getUseItem() == stack ? 1.0F : 0.0F);
             try {
                 Method m;
                 try {

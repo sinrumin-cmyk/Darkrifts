@@ -108,5 +108,16 @@
   "message.darkrifts.sovereign_sub": "Правитель Тёмного зеркала",
   "message.darkrifts.sovereign_phase2": "ВЛАСТИТЕЛЬ ВОССТАЁТ",
   "message.darkrifts.sovereign_phase3": "ЗЕРКАЛО РАЗБИВАЕТСЯ",
-  "message.darkrifts.sovereign_dead": "ВЛАСТИТЕЛЬ ПАЛ"
+  "message.darkrifts.sovereign_dead": "ВЛАСТИТЕЛЬ ПАЛ",
+  "ability.darkrifts.lance": "Копьё пустоты",
+  "ability.darkrifts.lance.desc": "Дальняя: пронзающий луч, бьёт всех на линии",
+  "ability.darkrifts.singularity": "Сингулярность",
+  "ability.darkrifts.singularity.desc": "Дальняя: чёрная дыра затягивает врагов и схлопывается",
+  "ability.darkrifts.whirl": "Вихрь разломов",
+  "ability.darkrifts.whirl.desc": "Ближняя: клинок крутится вокруг тебя, рубя всё рядом",
+  "ability.darkrifts.cross": "Крестовой разрыв",
+  "ability.darkrifts.cross.desc": "Ближняя: два скрещенных разреза рвут пространство крестом",
+  "ability.darkrifts.slam": "Удар с небес",
+  "ability.darkrifts.slam.desc": "Ближняя: прыжок и мощный удар о землю, из неё бьют шипы",
+  "entity.darkrifts.singularity": "Сингулярность"
 }

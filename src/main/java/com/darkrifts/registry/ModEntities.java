@@ -42,5 +42,18 @@ public final class ModEntities {
                             .fireImmune()
                             .build("mirror_sovereign"));
 
+    /** The black hole of the Singularity ability: a sphere with a violet disc, see SingularityRenderer. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.darkrifts.entity.Singularity>> SINGULARITY =
+            ENTITIES.register("singularity",
+                    () -> EntityType.Builder.<com.darkrifts.entity.Singularity>of(com.darkrifts.entity.Singularity::new,
+                                    MobCategory.MISC)
+                            .sized(2.0F, 2.0F)
+                            .clientTrackingRange(10)
+                            .updateInterval(20)
+                            .fireImmune()
+                            .noSave()
+                            .noSummon()
+                            .build("singularity"));
+
     private ModEntities() {}
 }

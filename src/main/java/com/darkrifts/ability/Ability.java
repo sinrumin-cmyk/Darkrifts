@@ -25,7 +25,17 @@ public enum Ability {
     /** Turn dark: invisible, shielded, and nearby mobs go blind. */
     CLOAK(300),
     /** Seals the entity you are looking at inside the void prison. */
-    SEAL(200);
+    SEAL(200),
+    /** RANGED: a piercing beam of void that fires through every enemy on the line. */
+    LANCE(90),
+    /** RANGED: plants a black hole at the target point that drags everything in and then collapses. */
+    SINGULARITY(220),
+    /** MELEE: the blade spins around you twice, cutting everything close. */
+    WHIRL(100),
+    /** MELEE: two crossing cuts tear an X in front of you. */
+    CROSS(80),
+    /** MELEE: leap into the air and smash down, rifts and spikes bursting out of the ground. */
+    SLAM(160);
 
     public final int cooldown;
 

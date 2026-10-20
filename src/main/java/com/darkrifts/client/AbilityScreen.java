@@ -40,6 +40,11 @@ public class AbilityScreen extends Screen {
             case STRIKE -> new ItemStack(Items.LIGHTNING_ROD);
             case DRAIN -> new ItemStack(Items.FERMENTED_SPIDER_EYE);
             case SHIELD -> new ItemStack(Items.SHIELD);
+            case LANCE -> new ItemStack(Items.TRIDENT);
+            case SINGULARITY -> new ItemStack(Items.DRAGON_BREATH);
+            case WHIRL -> new ItemStack(Items.NETHERITE_AXE);
+            case CROSS -> new ItemStack(Items.END_ROD);
+            case SLAM -> new ItemStack(Items.MACE);
         };
     }
 
