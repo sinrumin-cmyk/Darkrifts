@@ -18,5 +18,9 @@ public final class ModFeatures {
     /** Darkens and ruins chunks of the mirror dimension (no-op elsewhere). */
     public static final Supplier<MirrorFeature> DARKEN = FEATURES.register("darken", MirrorFeature::new);
 
+    /** Veins of Mirror Ore (no-op outside the mirror dimension). */
+    public static final Supplier<com.darkrifts.world.MirrorOreFeature> MIRROR_ORE =
+            FEATURES.register("mirror_ore", com.darkrifts.world.MirrorOreFeature::new);
+
     private ModFeatures() {}
 }

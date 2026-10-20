@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-/** The altar of the ritual: right click with a Nether Star. The show is in {@link RitualAltarBlockEntity}. */
+/** The altar of the ritual: right click with an Eye of Ender. The show is in {@link RitualAltarBlockEntity}. */
 public class RitualAltarBlock extends BaseEntityBlock {
     public static final MapCodec<RitualAltarBlock> CODEC = simpleCodec(RitualAltarBlock::new);
 
@@ -62,7 +62,7 @@ public class RitualAltarBlock extends BaseEntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit) {
-        if (!stack.is(Items.NETHER_STAR)) {
+        if (!stack.is(Items.ENDER_EYE)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (!level.isClientSide && player instanceof ServerPlayer sp

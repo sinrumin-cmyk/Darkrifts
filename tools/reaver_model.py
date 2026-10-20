@@ -426,7 +426,7 @@ def build(RES, MOD, write_json):
     write_json("data/%s/loot_table/entities/rift_reaver.json" % MOD, {
         "type": "minecraft:entity",
         "pools": [
-            {"rolls": 1, "entries": [{"type": "minecraft:item", "name": "minecraft:nether_star"}]},
+            {"rolls": 1, "entries": [{"type": "minecraft:item", "name": "%s:reaver_heart" % MOD}]},
             {"rolls": {"type": "minecraft:uniform", "min": 4, "max": 8},
              "entries": [{"type": "minecraft:item", "name": "minecraft:echo_shard"}]},
             {"rolls": {"type": "minecraft:uniform", "min": 1, "max": 3},

@@ -66,11 +66,15 @@ public final class ModEvents {
     public static void onServerStopped(ServerStoppedEvent event) {
         RiftStroke.clearAll();
         RiftWaves.clear();
+        com.darkrifts.world.RiftFx.clear();
+        com.darkrifts.world.MirrorSanctum.clear();
     }
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         RiftWaves.tick();
+        com.darkrifts.world.RiftFx.tick();
+        com.darkrifts.world.MirrorSanctum.tick(event.getServer());
     }
 
     /**
@@ -164,6 +168,21 @@ public final class ModEvents {
                             Seal.unseal(target);
                             return 1;
                         })))
+                // /darkrifts sanctum -> build the Sanctum at x1000 z1000 of the mirror (if needed) and go there
+                .then(Commands.literal("sanctum").requires(source -> source.hasPermission(2)).executes(ctx -> {
+                    ServerPlayer player = ctx.getSource().getPlayerOrException();
+                    ServerLevel mirror = ctx.getSource().getServer().getLevel(DarkDimensions.key(DarkDimensions.MIRROR));
+                    if (mirror == null) {
+                        ctx.getSource().sendFailure(Component.literal("The mirror dimension is not loaded"));
+                        return 0;
+                    }
+                    com.darkrifts.world.MirrorSanctum.buildNow(mirror);
+                    int y0 = com.darkrifts.world.MirrorSanctum.data(mirror).y0;
+                    player.teleportTo(mirror, com.darkrifts.world.MirrorSanctum.CX + 0.5, y0 + 4.0,
+                            com.darkrifts.world.MirrorSanctum.CZ + 12.5, player.getYRot(), 0.0F);
+                    ctx.getSource().sendSuccess(() -> Component.literal("Sanctum ready at x1000 z1000"), false);
+                    return 1;
+                }))
                 // /darkrifts home -> return to where you entered the dark realm
                 .then(Commands.literal("home").requires(source -> source.hasPermission(2)).executes(ctx -> {
                     ServerPlayer player = ctx.getSource().getPlayerOrException();

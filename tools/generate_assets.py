@@ -342,9 +342,9 @@ def make_worldgen_and_recipe():
     write_json("data/%s/recipe/rift_blade.json" % MOD, {
         "type": "minecraft:crafting_shaped",
         "category": "equipment",
-        "pattern": [" E ", "ESE", " P "],
+        "pattern": [" M ", "MSM", " P "],
         "key": {
-            "E": {"item": "minecraft:echo_shard"},
+            "M": {"item": "%s:mirrorite_ingot" % MOD},
             "S": {"item": "minecraft:netherite_sword"},
             "P": {"item": "minecraft:ender_eye"},
         },
@@ -489,8 +489,9 @@ def make_armor_textures():
 
 
 def make_armor():
-    make_armor_icons()
-    make_armor_textures()
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import armor_gen          # 3D armor: icons, 128x128 worn textures and client/RiftArmorParts.java
+    armor_gen.main()
     for name in ARMOR_PIECES:
         write_json("assets/%s/models/item/rift_%s.json" % (MOD, name), {
             "parent": "minecraft:item/generated",
@@ -501,18 +502,19 @@ def make_armor():
             "category": "equipment",
             "ingredients": [
                 {"item": "minecraft:netherite_%s" % name},
-                {"item": "minecraft:echo_shard"},
-                {"item": "minecraft:echo_shard"},
-                {"item": "minecraft:echo_shard"},
+                {"item": "%s:mirrorite_ingot" % MOD},
+                {"item": "%s:mirrorite_ingot" % MOD},
+                {"item": "%s:mirrorite_ingot" % MOD},
+                {"item": "%s:mirrorite_ingot" % MOD},
                 {"item": "minecraft:ender_eye"},
             ],
             "result": {"id": "%s:rift_%s" % (MOD, name), "count": 1},
         })
     for lang, names, extra in (
-        ("en_us", ARMOR_EN, {"tooltip.%s.rift_armor" % MOD: "Full set: no fall damage, halves magic damage, Speed I.",
-                              "tooltip.%s.rift_armor.set" % MOD: "Set bonus active"}),
-        ("ru_ru", ARMOR_RU, {"tooltip.%s.rift_armor" % MOD: "Полный сет: нет урона от падения, магический урон вдвое меньше, Скорость I.",
-                              "tooltip.%s.rift_armor.set" % MOD: "Бонус комплекта активен"}),
+        ("en_us", ARMOR_EN, {"tooltip.%s.rift_armor" % MOD: "Full set: no fall damage, +4 hearts, Speed II, magic -50%, projectiles -25%. Rift Ward: a heavy hit tears a rift around you.",
+                              "tooltip.%s.rift_armor.set" % MOD: "Set bonus active", "message.%s.rift_ward" % MOD: "Rift Ward!"}),
+        ("ru_ru", ARMOR_RU, {"tooltip.%s.rift_armor" % MOD: "Полный сет: нет урона от падения, +4 сердца, Скорость II, магия -50%, снаряды -25%. Барьер разлома: сильный удар рвёт пространство вокруг тебя.",
+                              "tooltip.%s.rift_armor.set" % MOD: "Бонус комплекта активен", "message.%s.rift_ward" % MOD: "Барьер разлома!"}),
     ):
         path = os.path.join(RES, "assets", MOD, "lang", lang + ".json")
         with open(path, encoding="utf-8") as f:
@@ -532,30 +534,39 @@ def make_reaver_assets():
 
 
 # --------------------------------------------------------------------------- ritual altar + codex book
+S = "\u00a75"      # book heading colour
+R = "\u00a7r"
 BOOK_EN = [
-    "\u00a75\u00a7lDark Rifts Codex\u00a7r\n\nA guide to the tears in the world, the blade that opens them, and what waits on the other side.",
-    "\u00a75Rift Blade\u00a7r\n\nNetherite Sword + 4 Echo Shards + Eye of Ender.\n\nHold Right Click, look up and drag your view to draw a rift. Sneak + Right Click on a rift closes it.",
-    "\u00a75Abilities\u00a7r\n\nPress R with the blade in hand.\n\nRift, Spikes, Step, Collapse, Cloak, Seal, Spike Wave, Void Slash, Void Strike, Drain and Rift Barrier.",
-    "\u00a75Dark Mirror\u00a7r\n\nRifts lead to the Dark Mirror: a ruined copy of the world under an eternal night. Thick fog, black trees, dark water and no sun.",
-    "\u00a75Void Prison\u00a7r\n\nThe Seal ability throws a player into the Void Prison. A sealed player respawns there forever. Only the one who sealed them can lift the seal.",
-    "\u00a75Rift Armor\u00a7r\n\nNetherite piece + 3 Echo Shards + Eye of Ender.\n\nFull set: no fall damage, magic damage halved, Speed I.",
-    "\u00a75Ritual Altar\u00a7r\n\nCraft: 6 Obsidian, 1 Crying Obsidian, 2 Echo Shards (shards on top corners, crying obsidian between them).\nPlace it on open ground.",
-    "\u00a75The Ritual\u00a7r\n\nRight Click the altar with a Nether Star. For twelve seconds the world shakes, runes burn and rifts open. Stay back, and keep the sky above the altar clear.",
-    "\u00a75Rift Reaver\u00a7r\n\nThe altar is consumed and a rift opens in the sky. The Reaver tears its way out of it. It slams the ground, calls spikes and drags you in. At half health it goes berserk.",
-    "\u00a75Spoils\u00a7r\n\nThe Reaver drops a Nether Star, Echo Shards, Ender Pearls and Netherite Scrap.\n\nGood luck, rift-walker.",
+    S + "\u00a7lDark Rifts Codex" + R + "\n\nThe road: Ancient City -> Ritual Altar -> Rift Reaver -> Mirror Blade -> Dark Mirror -> Mirrorite -> Rift gear.\n\nThe Reaver stands before the Ender Dragon.",
+    S + "1. Echo Shards" + R + "\n\nEcho Shards grow in Ancient Cities, deep under the world. You need 2 for the altar, 3 for each Mirror Blade, and you will take more from the Reaver.",
+    S + "2. Ritual Altar" + R + "\n\nCraft: 6 Obsidian, 1 Crying Obsidian, 2 Echo Shards (shards on the top corners, crying obsidian between them).\nPlace it on open ground with a clear sky above.",
+    S + "3. The Ritual" + R + "\n\nRight Click the altar with an Eye of Ender. For twelve seconds the world shakes, runes burn and rifts open. The altar is consumed.",
+    S + "4. Rift Reaver" + R + "\n\nA mid-game boss: 300 health. It slams the ground, calls spikes and drags you in. At half health it goes berserk. Bring diamond gear, potions and a wide arena.",
+    S + "5. Spoils" + R + "\n\nThe Reaver always drops a Reaver Heart. It also drops Echo Shards, Ender Pearls and Netherite Scrap.",
+    S + "6. Mirror Blade" + R + "\n\nReaver Heart + Iron Sword + 3 Echo Shards (shapeless).\n\nOne use only. Hold Right Click, look up and drag your view to draw a rift. When the rift is finished the blade shatters.",
+    S + "7. Dark Mirror" + R + "\n\nThe rift leads to a ruined copy of your world under eternal night. A return rift stays beside where you arrive. Rifts you draw collapse after 5 minutes.",
+    S + "8. Mirror Ore" + R + "\n\nMirror Ore grows underground in the Dark Mirror, as veins in stone and deepslate. Mine it with a Diamond Pickaxe, smelt the Raw Mirrorite into Mirrorite Ingots.",
+    S + "9. Mirrorite Arsenal" + R + "\n\nSword, Pickaxe, Axe, Shovel, Hoe: a little better than diamond.\nSword and Axe: 25% to slow and weaken what they hit.\nMirror Bow (3 Ingots + 3 String): +damage, arrows pierce 2 targets.",
+    S + "10. Rift Blade" + R + "\n\nNetherite Sword + 3 Mirrorite Ingots + Eye of Ender.\n\nThe reusable blade. Press R to choose an ability: Rift, Spikes, Step, Collapse, Cloak, Seal, Spike Wave, Slash, Strike, Drain, Barrier.",
+    S + "11. Rift Armor" + R + "\n\nNetherite piece + 4 Mirrorite Ingots + Eye of Ender.\n\nFull set: no fall damage, +4 hearts, Speed II, magic -50%, projectiles -25%.\n\nRift Ward (8 s): a hit of 5+ damage tears a rift around you, softens the blow and blasts enemies away.\n\nSeal sends a player to the Void Prison; only the one who sealed them can free them.",
+    S + "12. The Sanctum" + R + "\n\nIn the Dark Mirror, at x1000 z1000, stands the Sanctum: a plateau with four towers and an altar. Put a Reaver Heart on the pedestal of each tower, then the Dragon Egg on the altar in the middle. The Mirror Sovereign tears out of the sky and never leaves its dais. Command: /darkrifts sanctum.",
 ]
 BOOK_RU = [
-    "\u00a75\u00a7lКодекс тёмных разломов\u00a7r\n\nРуководство по трещинам мира, клинку, который их открывает, и тому, что ждёт по ту сторону.",
-    "\u00a75Клинок разломов\u00a7r\n\nНезеритовый меч + 4 эхо-осколка + глаз Края.\n\nЗажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом. Shift + ПКМ по разлому закрывает его.",
-    "\u00a75Способности\u00a7r\n\nНажми R с клинком в руке.\n\nРазлом, Шипы, Шаг, Коллапс, Покров, Печать, Волна шипов, Разрез, Удар пустоты, Поглощение и Барьер.",
-    "\u00a75Тёмное зеркало\u00a7r\n\nРазломы ведут в Тёмное зеркало: разрушенную копию мира под вечной ночью. Густой туман, чёрные деревья, тёмная вода и никакого солнца.",
-    "\u00a75Тюрьма пустоты\u00a7r\n\nСпособность «Печать» бросает игрока в Тюрьму пустоты. Запечатанный возрождается там вечно. Снять печать может только тот, кто её наложил.",
-    "\u00a75Броня разломов\u00a7r\n\nНезеритовая деталь + 3 эхо-осколка + глаз Края.\n\nПолный сет: нет урона от падения, магический урон вдвое меньше, Скорость I.",
-    "\u00a75Алтарь ритуала\u00a7r\n\nКрафт: 6 обсидиана, 1 плачущий обсидиан, 2 эхо-осколка (осколки сверху по углам, плачущий обсидиан между ними).\nПоставь на открытой земле.",
-    "\u00a75Ритуал\u00a7r\n\nПКМ по алтарю со звездой Нижнего мира. Двенадцать секунд мир дрожит, руны горят, открываются разломы. Отойди и не загораживай небо над алтарём.",
-    "\u00a75Жнец разлома\u00a7r\n\nАлтарь поглощается, в небе раскрывается разлом, и Жнец рвёт себе выход. Он бьёт по земле, вызывает шипы и затягивает тебя. На половине здоровья впадает в ярость.",
-    "\u00a75Трофеи\u00a7r\n\nС Жнеца падают звезда Нижнего мира, эхо-осколки, жемчуг Края и незеритовый лом.\n\nУдачи, ходящий по разломам.",
+    S + "\u00a7lКодекс тёмных разломов" + R + "\n\nПуть: Древний город -> Алтарь ритуала -> Жнец разлома -> Зеркальный клинок -> Тёмное зеркало -> Зеркальный металл -> снаряжение разломов.\n\nЖнец стоит перед Драконом Края.",
+    S + "1. Эхо-осколки" + R + "\n\nЭхо-осколки растут в Древних городах, глубоко под землёй. Нужно 2 на алтарь, 3 на каждый Зеркальный клинок, и ещё добавит Жнец.",
+    S + "2. Алтарь ритуала" + R + "\n\nКрафт: 6 обсидиана, 1 плачущий обсидиан, 2 эхо-осколка (осколки сверху по углам, плачущий обсидиан между ними).\nПоставь на открытой земле, небо над ним должно быть чистым.",
+    S + "3. Ритуал" + R + "\n\nПКМ по алтарю с Оком Края. Двенадцать секунд мир дрожит, руны горят, открываются разломы. Алтарь поглощается.",
+    S + "4. Жнец разлома" + R + "\n\nБосс середины игры: 300 здоровья. Бьёт по земле, вызывает шипы и затягивает тебя. На половине здоровья впадает в ярость. Нужны алмазная броня, зелья и просторная арена.",
+    S + "5. Трофеи" + R + "\n\nС Жнеца всегда падает Сердце жнеца. Также падают эхо-осколки, жемчуг Края и незеритовый лом.",
+    S + "6. Зеркальный клинок" + R + "\n\nСердце жнеца + железный меч + 3 эхо-осколка (бесформенный крафт).\n\nОдноразовый. Зажми ПКМ, посмотри вверх и веди взглядом, чтобы нарисовать разлом. Когда разлом готов, клинок разбивается.",
+    S + "7. Тёмное зеркало" + R + "\n\nРазлом ведёт в разрушенную копию твоего мира под вечной ночью. Обратный разлом остаётся рядом с местом прибытия. Нарисованные тобой разломы схлопываются через 5 минут.",
+    S + "8. Зеркальная руда" + R + "\n\nЗеркальная руда растёт под землёй в Тёмном зеркале жилами в камне и глубинном сланце. Добывай алмазной киркой, переплавляй сырой зеркалит в слитки.",
+    S + "9. Арсенал зеркалита" + R + "\n\nМеч, кирка, топор, лопата, мотыга: чуть лучше алмазных.\nМеч и топор: 25% замедлить и ослабить цель.\nЗеркальный лук (3 слитка + 3 нити): больше урона, стрелы пробивают 2 цели.",
+    S + "10. Клинок разломов" + R + "\n\nНезеритовый меч + 3 слитка зеркалита + Око Края.\n\nМногоразовый клинок. Нажми R, чтобы выбрать способность: Разлом, Шипы, Шаг, Коллапс, Покров, Печать, Волна шипов, Разрез, Удар, Поглощение, Барьер.",
+    S + "11. Броня разломов" + R + "\n\nНезеритовая деталь + 4 слитка зеркалита + Око Края.\n\nПолный сет: нет урона от падения, +4 сердца, Скорость II, магия -50%, снаряды -25%.\n\nБарьер разлома (8 с): удар от 5 урона рвёт пространство вокруг, смягчает удар и отбрасывает врагов.\n\nПечать отправляет игрока в Тюрьму пустоты; освободить может только тот, кто запечатал.",
+    S + "12. Святилище" + R + "\n\nВ Тёмном зеркале, на x1000 z1000, стоит Святилище: плато с четырьмя башнями и алтарём. Положи Сердце жнеца на постамент каждой башни, затем Яйцо дракона на алтарь в центре. Властитель зеркала рвёт небо и никогда не покидает своего возвышения. Команда: /darkrifts sanctum.",
 ]
+assert len(BOOK_EN) == len(BOOK_RU) == 13
 
 
 def make_altar_and_book():
@@ -572,7 +583,8 @@ def make_altar_and_book():
         "pools": [{"rolls": 1, "entries": [{"type": "minecraft:item", "name": "%s:ritual_altar" % MOD}],
                    "conditions": [{"condition": "minecraft:survives_explosion"}]}],
     })
-    write_json("data/minecraft/tags/block/mineable/pickaxe.json", {"values": ["%s:ritual_altar" % MOD]})
+    write_json("data/minecraft/tags/block/mineable/pickaxe.json", {"values": [
+        "%s:ritual_altar" % MOD, "%s:mirror_ore" % MOD, "%s:mirrorite_block" % MOD]})
     write_json("data/%s/recipe/ritual_altar.json" % MOD, {
         "type": "minecraft:crafting_shaped",
         "category": "misc",
@@ -597,25 +609,25 @@ def make_altar_and_book():
         "block.%s.ritual_altar" % MOD: "Ritual Altar",
         "entity.%s.rift_reaver" % MOD: "Rift Reaver",
         "item.%s.rift_reaver_spawn_egg" % MOD: "Rift Reaver Spawn Egg",
-        "message.%s.ritual_need_star" % MOD: "The altar hungers for a Nether Star",
+        "message.%s.ritual_need_star" % MOD: "The altar hungers for an Eye of Ender",
         "message.%s.ritual_no_room" % MOD: "Not enough free space around and above the altar",
         "message.%s.ritual_begin" % MOD: "The ritual begins...",
         "message.%s.ritual_busy" % MOD: "The ritual is already underway",
         "message.%s.ritual_awakens" % MOD: "The Rift Reaver awakens",
         "message.%s.reaver_enraged" % MOD: "The Reaver goes berserk!",
-        "tooltip.%s.ritual_altar" % MOD: "Right Click with a Nether Star to begin the ritual.",
+        "tooltip.%s.ritual_altar" % MOD: "Right Click with an Eye of Ender to begin the ritual.",
     }
     ru_extra = {
         "block.%s.ritual_altar" % MOD: "Алтарь ритуала",
         "entity.%s.rift_reaver" % MOD: "Жнец разлома",
         "item.%s.rift_reaver_spawn_egg" % MOD: "Яйцо призыва: Жнец разлома",
-        "message.%s.ritual_need_star" % MOD: "Алтарь жаждет звезду Нижнего мира",
+        "message.%s.ritual_need_star" % MOD: "Алтарь жаждет Око Края",
         "message.%s.ritual_no_room" % MOD: "Не хватает свободного места вокруг и над алтарём",
         "message.%s.ritual_begin" % MOD: "Ритуал начинается...",
         "message.%s.ritual_busy" % MOD: "Ритуал уже идёт",
         "message.%s.ritual_awakens" % MOD: "Жнец разлома пробуждается",
         "message.%s.reaver_enraged" % MOD: "Жнец впал в ярость!",
-        "tooltip.%s.ritual_altar" % MOD: "ПКМ со звездой Нижнего мира начинает ритуал.",
+        "tooltip.%s.ritual_altar" % MOD: "ПКМ с Оком Края начинает ритуал.",
     }
     for i in range(len(BOOK_EN)):
         en_extra["book.%s.page%d" % (MOD, i + 1)] = BOOK_EN[i]
@@ -640,5 +652,13 @@ if __name__ == "__main__":
     make_armor()
     make_reaver_assets()
     make_altar_and_book()
+    import arsenal
+    arsenal.build(RES, MOD, write_json)
+    import items_gen
+    items_gen.build(RES, MOD)
+    import sovereign_model
+    sovereign_model.build(RES, MOD, write_json)
+    import sanctum_assets
+    sanctum_assets.build(RES, MOD, write_json)
     print("Generated resources into", RES)
     sys.exit(0)

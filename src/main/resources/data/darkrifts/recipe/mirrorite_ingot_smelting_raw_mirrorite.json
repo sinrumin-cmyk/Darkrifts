@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "ingredient": {
+    "item": "darkrifts:raw_mirrorite"
+  },
+  "result": {
+    "id": "darkrifts:mirrorite_ingot"
+  },
+  "experience": 1.0,
+  "cookingtime": 200
+}

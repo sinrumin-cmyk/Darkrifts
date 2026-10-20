@@ -247,22 +247,60 @@ public class RiftBlock extends BaseEntityBlock {
 
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-        double x = pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.8;
-        double y = pos.getY() + 0.5 + (random.nextDouble() - 0.5) * 0.8;
-        double z = pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.8;
+        double cx = pos.getX() + 0.5;
+        double cy = pos.getY() + 0.5;
+        double cz = pos.getZ() + 0.5;
+        double x = cx + (random.nextDouble() - 0.5) * 0.8;
+        double y = cy + (random.nextDouble() - 0.5) * 0.8;
+        double z = cz + (random.nextDouble() - 0.5) * 0.8;
+        double t = level.getGameTime() * 0.11;
+
+        // void matter spiralling inwards, like the arms of the ritual
+        for (int i = 0; i < 2; i++) {
+            double a = t + random.nextDouble() * Math.PI * 2.0;
+            double r = 1.0 + random.nextDouble() * 1.1;
+            level.addParticle(ParticleTypes.REVERSE_PORTAL, cx + Math.cos(a) * r, cy + (random.nextDouble() - 0.5) * 1.4,
+                    cz + Math.sin(a) * r, -Math.cos(a) * 0.09 - Math.sin(a) * 0.04, 0.0, -Math.sin(a) * 0.09 + Math.cos(a) * 0.04);
+        }
+        if (random.nextInt(2) == 0) {
+            level.addParticle(ParticleTypes.PORTAL, x, y, z, (random.nextDouble() - 0.5) * 0.6,
+                    (random.nextDouble() - 0.5) * 0.6, (random.nextDouble() - 0.5) * 0.6);
+        }
         if (random.nextInt(3) == 0) {
             level.addParticle(ParticleTypes.REVERSE_PORTAL, x, y, z,
                     (random.nextDouble() - 0.5) * 0.1, (random.nextDouble() - 0.5) * 0.1, (random.nextDouble() - 0.5) * 0.1);
         }
+        // sparks of light rising out of the tear
+        if (random.nextInt(5) == 0) {
+            level.addParticle(ParticleTypes.END_ROD, x, y, z, (random.nextDouble() - 0.5) * 0.02, 0.04 + random.nextDouble() * 0.05,
+                    (random.nextDouble() - 0.5) * 0.02);
+        }
+        if (random.nextInt(6) == 0) {
+            level.addParticle(ParticleTypes.ELECTRIC_SPARK, x, y, z, (random.nextDouble() - 0.5) * 0.4,
+                    (random.nextDouble() - 0.5) * 0.4, (random.nextDouble() - 0.5) * 0.4);
+        }
+        if (random.nextInt(8) == 0) {
+            level.addParticle(ParticleTypes.SCULK_SOUL, x, y, z, 0.0, 0.03, 0.0);
+        }
+        // black matter dripping and ash being drawn in
+        if (random.nextInt(8) == 0) {
+            level.addParticle(ParticleTypes.SQUID_INK, x, y, z, 0.0, -0.02, 0.0);
+        }
         if (random.nextInt(10) == 0) {
-            level.addParticle(ParticleTypes.SQUID_INK, x, y, z, 0.0, 0.01, 0.0);
+            level.addParticle(ParticleTypes.ASH, cx + (random.nextDouble() - 0.5) * 5.0, cy + random.nextDouble() * 3.0,
+                    cz + (random.nextDouble() - 0.5) * 5.0, 0.0, 0.0, 0.0);
         }
-        if (random.nextInt(12) == 0) {
-            level.addParticle(ParticleTypes.ELECTRIC_SPARK, x, y, z, 0.0, 0.0, 0.0);
-        }
-        if (random.nextInt(16) == 0) {
+        if (random.nextInt(10) == 0) {
             level.addParticle(new net.minecraft.core.particles.DustParticleOptions(
-                    new org.joml.Vector3f(0.6F, 0.2F, 1.0F), 0.8F), x, y, z, 0.0, 0.0, 0.0);
+                    new org.joml.Vector3f(0.6F, 0.2F, 1.0F), 0.9F), x, y, z, 0.0, 0.0, 0.0);
+        }
+        if (random.nextInt(14) == 0) {
+            level.addParticle(new net.minecraft.core.particles.DustParticleOptions(
+                    new org.joml.Vector3f(0.2F, 0.9F, 0.95F), 0.8F), x, y, z, 0.0, 0.0, 0.0);
+        }
+        if (random.nextInt(260) == 0) {
+            level.playLocalSound(pos, net.minecraft.sounds.SoundEvents.PORTAL_AMBIENT, net.minecraft.sounds.SoundSource.BLOCKS,
+                    0.5F, 0.5F + random.nextFloat() * 0.3F, false);
         }
     }
 }

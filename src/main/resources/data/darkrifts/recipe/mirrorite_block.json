@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "darkrifts:mirrorite_ingot"
+    }
+  },
+  "result": {
+    "id": "darkrifts:mirrorite_block",
+    "count": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "ingredient": {
+    "item": "darkrifts:mirror_ore"
+  },
+  "result": {
+    "id": "darkrifts:mirrorite_ingot"
+  },
+  "experience": 1.0,
+  "cookingtime": 100
+}

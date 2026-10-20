@@ -5,7 +5,11 @@ import com.darkrifts.registry.ModBlockEntities;
 import com.darkrifts.registry.ModFluids;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -13,8 +17,10 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
 import java.lang.reflect.Method;
@@ -29,6 +35,33 @@ public final class ClientSetup {
         event.registerEntityRenderer(com.darkrifts.registry.ModEntities.RIFT_SPIKE.get(), RiftSpikeRenderer::new);
         event.registerEntityRenderer(com.darkrifts.registry.ModEntities.RIFT_REAVER.get(), RiftReaverRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.ALTAR.get(), RitualAltarRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.SANCTUM_TOWER.get(), SanctumTowerRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.SANCTUM_CORE.get(), SanctumCoreRenderer::new);
+        event.registerEntityRenderer(com.darkrifts.registry.ModEntities.MIRROR_SOVEREIGN.get(), MirrorSovereignRenderer::new);
+    }
+
+    /** The 3D Rift armor (horns, pauldrons, spikes): see RiftArmorModels / the generated RiftArmorParts. */
+    @SubscribeEvent
+    public static void registerArmorLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        RiftArmorModels.registerLayers(event);
+    }
+
+    @SubscribeEvent
+    public static void registerArmorModels(RegisterClientExtensionsEvent event) {
+        event.registerItem(new IClientItemExtensions() {
+            @Override
+            public HumanoidModel<?> getHumanoidArmorModel(LivingEntity entity, ItemStack stack, EquipmentSlot slot,
+                                                          HumanoidModel<?> original) {
+                return RiftArmorModels.get(slot, original);
+            }
+        }, com.darkrifts.registry.ModItems.RIFT_HELMET.get(), com.darkrifts.registry.ModItems.RIFT_CHESTPLATE.get(),
+                com.darkrifts.registry.ModItems.RIFT_LEGGINGS.get(), com.darkrifts.registry.ModItems.RIFT_BOOTS.get());
+    }
+
+    /** Screen flash for rift births / jumps / the armor's ward. */
+    @SubscribeEvent
+    public static void registerGui(RegisterGuiLayersEvent event) {
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DarkRifts.MODID, "rift_flash"), FlashOverlay::render);
     }
 
     /** Both dark realms use the "no vanilla sky" effects; SkyRenderer draws the real one. */

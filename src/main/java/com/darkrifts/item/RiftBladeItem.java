@@ -5,6 +5,7 @@ import com.darkrifts.ability.Abilities;
 import com.darkrifts.ability.Ability;
 import com.darkrifts.DarkDimensions;
 import com.darkrifts.block.RiftBlock;
+import com.darkrifts.world.RiftFx;
 import com.darkrifts.world.RiftWaves;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -51,8 +52,20 @@ import java.util.List;
 public class RiftBladeItem extends SwordItem {
     private static final int COOLDOWN_TICKS = 40;
 
+    /** A single-use blade (the Mirror Blade): only draws one rift, never wears down, shatters when the rift is done. */
+    private final boolean singleUse;
+
     public RiftBladeItem(Properties properties) {
+        this(properties, false);
+    }
+
+    public RiftBladeItem(Properties properties, boolean singleUse) {
         super(Tiers.NETHERITE, properties);
+        this.singleUse = singleUse;
+    }
+
+    public boolean isSingleUse() {
+        return singleUse;
     }
 
     @Override
@@ -68,6 +81,14 @@ public class RiftBladeItem extends SwordItem {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (singleUse) {
+            // The Mirror Blade has exactly one trick: draw a rift into the Dark Mirror.
+            if (player.getCooldowns().isOnCooldown(this)) {
+                return InteractionResultHolder.fail(stack);
+            }
+            player.startUsingItem(hand);
+            return InteractionResultHolder.consume(stack);
+        }
         if (player.isShiftKeyDown()) {
             // Sneak + right click on a rift seals it.
             if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer sp) {
@@ -158,6 +179,10 @@ public class RiftBladeItem extends SwordItem {
             stroke.length += len;
         }
 
+        RiftFx.stroke(serverLevel, stroke.lastPoint(), random);
+        if (stroke.placed > 0 && now % 12 == 0) {
+            RiftFx.screen(serverLevel, stroke.lastPoint(), 20.0, 0.12F + Math.min(0.4F, stroke.placed / 200.0F), 0.0F, 0xB48CFF);
+        }
         if (newBlocks > 0) {
             // Crackling that rises in pitch as the rift grows.
             float pitch = 0.5F + Math.min(1.2F, stroke.placed / 120.0F);
@@ -167,7 +192,7 @@ public class RiftBladeItem extends SwordItem {
 
         // The blade wears down as the rift grows.
         int due = stroke.placed / 12 - stroke.damaged;
-        if (due > 0) {
+        if (due > 0 && !singleUse) {
             stroke.damaged += due;
             EquipmentSlot slot = player.getUsedItemHand() == InteractionHand.MAIN_HAND
                     ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
@@ -198,8 +223,26 @@ public class RiftBladeItem extends SwordItem {
         BlockPos cp = BlockPos.containing(c);
         serverLevel.playSound(null, cp, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0F, 1.3F);
         serverLevel.playSound(null, cp, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 0.4F);
-        shockwave(serverLevel, c, Math.min(6.0, 1.5 + stroke.placed / 20.0));
+        double power = Math.min(6.0, 1.5 + stroke.placed / 20.0);
+        shockwave(serverLevel, c, power);
+        RiftFx.birth(serverLevel, c, power);
         player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
+        if (singleUse) {
+            shatter(serverLevel, player, stack, c);
+        }
+    }
+
+    /** The Mirror Blade is spent: the rift it drew stays, the blade breaks into glass. */
+    private static void shatter(ServerLevel level, ServerPlayer player, ItemStack stack, Vec3 at) {
+        level.playSound(null, BlockPos.containing(at), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.2F, 0.7F);
+        level.playSound(null, player.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 1.0F, 0.8F);
+        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getEyeY() - 0.4, player.getZ(),
+                24, 0.4, 0.4, 0.4, 0.15);
+        player.displayClientMessage(Component.translatable("message.darkrifts.blade_shattered")
+                .withStyle(ChatFormatting.LIGHT_PURPLE), true);
+        if (!player.getAbilities().instabuild) {
+            stack.shrink(1);
+        }
     }
 
     // ------------------------------------------------------------------ closing
@@ -258,6 +301,7 @@ public class RiftBladeItem extends SwordItem {
             }
         }
         if (closed > 0) {
+            RiftFx.collapse(level, Vec3.atCenterOf(start), true);
             level.playSound(null, start, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 0.5F);
             level.playSound(null, start, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 0.6F);
             EquipmentSlot slot = hand == InteractionHand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
@@ -329,6 +373,12 @@ public class RiftBladeItem extends SwordItem {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        if (singleUse) {
+            tooltip.add(Component.translatable("tooltip.darkrifts.mirror_blade.1").withStyle(ChatFormatting.DARK_PURPLE));
+            tooltip.add(Component.translatable("tooltip.darkrifts.mirror_blade.2").withStyle(ChatFormatting.GRAY));
+            super.appendHoverText(stack, context, tooltip, flag);
+            return;
+        }
         tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.1").withStyle(ChatFormatting.DARK_PURPLE));
         tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.2").withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("tooltip.darkrifts.rift_blade.3").withStyle(ChatFormatting.LIGHT_PURPLE));

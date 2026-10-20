@@ -44,5 +44,39 @@ public final class ModBlocks {
                     .lightLevel(state -> 7)
                     .noOcclusion()));
 
+    /** Ore of the mirror dimension. Generated only in the Dark Mirror (see world/MirrorOreFeature). */
+    public static final DeferredBlock<Block> MIRROR_ORE = BLOCKS.register("mirror_ore",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_PURPLE)
+                    .strength(4.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .lightLevel(state -> 4)
+                    .sound(net.minecraft.world.level.block.SoundType.DEEPSLATE)));
+
+    public static final DeferredBlock<Block> MIRRORITE_BLOCK = BLOCKS.register("mirrorite_block",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_PURPLE)
+                    .strength(5.0F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(net.minecraft.world.level.block.SoundType.METAL)));
+
+    /** Heart Pedestal at the foot of each tower of the Sanctum (insert a Reaver Heart). */
+    public static final DeferredBlock<com.darkrifts.block.SanctumTowerBlock> SANCTUM_TOWER = BLOCKS.register("sanctum_tower",
+            () -> new com.darkrifts.block.SanctumTowerBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .strength(-1.0F, 3600000.0F)
+                    .lightLevel(state -> 10)
+                    .noOcclusion()
+                    .noLootTable()));
+
+    /** The Egg Altar in the middle of the Sanctum (insert the Dragon Egg once all four towers hold a heart). */
+    public static final DeferredBlock<com.darkrifts.block.SanctumCoreBlock> SANCTUM_CORE = BLOCKS.register("sanctum_core",
+            () -> new com.darkrifts.block.SanctumCoreBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .strength(-1.0F, 3600000.0F)
+                    .lightLevel(state -> 12)
+                    .noOcclusion()
+                    .noLootTable()));
+
     private ModBlocks() {}
 }

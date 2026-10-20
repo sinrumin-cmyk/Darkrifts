@@ -14,5 +14,6 @@ public final class ModBootstrap {
     @SubscribeEvent
     public static void attributes(EntityAttributeCreationEvent event) {
         event.put(ModEntities.RIFT_REAVER.get(), RiftReaver.createAttributes().build());
+        event.put(ModEntities.MIRROR_SOVEREIGN.get(), com.darkrifts.entity.MirrorSovereign.createSovereignAttributes().build());
     }
 }

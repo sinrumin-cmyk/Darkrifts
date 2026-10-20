@@ -30,6 +30,16 @@ import java.util.List;
 public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
     private static final int SUB = 5; // sub-segments per piece
 
+    @Override
+    public boolean shouldRenderOffScreen(RiftBlockEntity be) {
+        return be.isAnchor();
+    }
+
+    @Override
+    public int getViewDistance() {
+        return 128;
+    }
+
     public RiftRenderer(BlockEntityRendererProvider.Context context) {}
 
     /** A fully computed strip, ready to be emitted in the glow and core passes. */
@@ -54,6 +64,9 @@ public class RiftRenderer implements BlockEntityRenderer<RiftBlockEntity> {
         float time = level.getGameTime() + partialTick;
 
         List<double[]> segs = be.getSegments();
+        if (be.isAnchor() && !be.isFlat()) {
+            RiftAura.draw(be, level, origin, pose, buffers, time);
+        }
         if (segs.isEmpty()) {
             // Rift without stored line (older saves): a short vertical piece through the cell.
             double cx = origin.getX() + 0.5;

@@ -2,6 +2,7 @@ package com.darkrifts.block;
 
 import com.darkrifts.DarkDimensions;
 import com.darkrifts.registry.ModBlockEntities;
+import com.darkrifts.world.RiftFx;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -12,10 +13,12 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -130,14 +133,88 @@ public class RiftBlockEntity extends BlockEntity {
         return target;
     }
 
-    public static void serverTick(Level level, BlockPos pos, BlockState state, RiftBlockEntity be) {
-        if (be.expireAt > 0 && level.getGameTime() >= be.expireAt) {
-            level.removeBlock(pos, false);
+    public long getExpireAt() {
+        return expireAt;
+    }
+
+    /** True for the one cell that owns the very first piece of the tear line: it runs the once-per-rift effects. */
+    public boolean isAnchor() {
+        if (decor) {
+            return false;
         }
+        for (double[] s : segments) {
+            if (s[7] == 0.0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Start of the tear line (used by the client to put the rune circle under it). */
+    @Nullable
+    public double[] getStartPoint() {
+        for (double[] s : segments) {
+            if (s[7] == 0.0) {
+                return new double[]{s[0], s[1], s[2]};
+            }
+        }
+        return null;
+    }
+
+    public static void serverTick(Level level, BlockPos pos, BlockState state, RiftBlockEntity be) {
+        long now = level.getGameTime();
+        if (be.expireAt > 0 && now >= be.expireAt) {
+            if (level instanceof ServerLevel sl) {
+                be.collapseFx(sl);
+            }
+            level.removeBlock(pos, false);
+            return;
+        }
+        if (!(level instanceof ServerLevel sl) || be.segments.isEmpty()) {
+            return;
+        }
+        // 0 = calm, 1 = unstable (last 5 s), 2 = about to burst (last second)
+        long left = be.expireAt > 0 ? be.expireAt - now : Long.MAX_VALUE;
+        int heat = left < 20 ? 2 : left < 100 ? 1 : 0;
+        int period = be.decor ? 8 : (heat > 0 ? 2 : 4);
+        long phase = (now + (pos.getX() * 31L + pos.getZ() * 17L + pos.getY() * 7L)) & 0x7FFFFFFFL;
+        if (phase % period != 0) {
+            return;
+        }
+        var rnd = sl.getRandom();
+        int n = Math.min(be.segments.size(), be.decor ? 1 : 3);
+        for (int i = 0; i < n; i++) {
+            RiftFx.ambient(sl, be.segments.get(rnd.nextInt(be.segments.size())), now, rnd, be.decor ? 0 : heat);
+        }
+        if (be.decor) {
+            return;
+        }
+        double[] s = be.segments.get(rnd.nextInt(be.segments.size()));
+        Vec3 mid = new Vec3((s[0] + s[3]) / 2.0, (s[1] + s[4]) / 2.0, (s[2] + s[5]) / 2.0);
+        if (rnd.nextInt(heat > 0 ? 8 : 40) == 0) {
+            RiftFx.arc(sl, mid, rnd);
+        }
+        if (be.isAnchor() && now % (heat > 0 ? 25 : 90) == 0) {
+            RiftFx.hum(sl, mid, rnd, heat);
+        }
+    }
+
+    /** The tear collapses: the anchor cell makes the big implosion, the others a small puff. */
+    private void collapseFx(ServerLevel sl) {
+        Vec3 c = Vec3.atCenterOf(worldPosition);
+        if (!segments.isEmpty()) {
+            double[] s = segments.get(0);
+            c = new Vec3((s[0] + s[3]) / 2.0, (s[1] + s[4]) / 2.0, (s[2] + s[5]) / 2.0);
+        }
+        RiftFx.collapse(sl, c, isAnchor());
     }
 
     /** The tear can stretch a couple of blocks beyond its cell - don't cull it too early. */
     public AABB getRenderBoundingBox() {
+        if (isAnchor()) {
+            // the rune circle on the ground, the pillar of light and the halo
+            return new AABB(worldPosition).inflate(10.0, 0.0, 10.0).expandTowards(0.0, -64.0, 0.0).expandTowards(0.0, 12.0, 0.0);
+        }
         return new AABB(worldPosition).inflate(3.0);
     }
 

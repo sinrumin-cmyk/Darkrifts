@@ -31,5 +31,16 @@ public final class ModEntities {
                             .fireImmune()
                             .build("rift_reaver"));
 
+    /** The stationary endgame boss of the Sanctum (no spawn egg: it comes out of the awakening). */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.darkrifts.entity.MirrorSovereign>> MIRROR_SOVEREIGN =
+            ENTITIES.register("mirror_sovereign",
+                    () -> EntityType.Builder.<com.darkrifts.entity.MirrorSovereign>of(com.darkrifts.entity.MirrorSovereign::new,
+                                    MobCategory.MONSTER)
+                            .sized(4.4F, 8.0F)
+                            .clientTrackingRange(20)
+                            .updateInterval(2)
+                            .fireImmune()
+                            .build("mirror_sovereign"));
+
     private ModEntities() {}
 }

@@ -23,7 +23,8 @@ public final class AbilityClient {
             return;
         }
         while (AbilityKeys.OPEN.consumeClick()) {
-            if (mc.screen == null && mc.player.getMainHandItem().getItem() instanceof RiftBladeItem) {
+            if (mc.screen == null && mc.player.getMainHandItem().getItem() instanceof RiftBladeItem blade
+                    && !blade.isSingleUse()) {
                 mc.setScreen(new AbilityScreen());
             }
         }

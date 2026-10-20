@@ -69,6 +69,16 @@ public class RiftReaver extends Monster implements GeoEntity {
     public static final float RIFT_B = 3.0F;
     private static final double START_OFFSET = 4.8;
 
+    /** How far above the tear the boss starts (bigger bosses start higher). */
+    protected double startOffset() {
+        return START_OFFSET;
+    }
+
+    /** Range in which the boss starts casting abilities. */
+    protected double castRange() {
+        return 28.0;
+    }
+
     /** Game time at which the sky rift appeared; -1 = no rift. Everything about the entrance is a function of this. */
     private static final EntityDataAccessor<Long> RIFT_START =
             SynchedEntityData.defineId(RiftReaver.class, EntityDataSerializers.LONG);
@@ -85,31 +95,31 @@ public class RiftReaver extends Monster implements GeoEntity {
     private static final DustParticleOptions VIOLET = new DustParticleOptions(new Vector3f(0.7F, 0.25F, 1.0F), 1.6F);
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
-    private final ServerBossEvent bossEvent = new ServerBossEvent(
+    protected final ServerBossEvent bossEvent = new ServerBossEvent(
             Component.translatable("entity.darkrifts.rift_reaver"),
             BossEvent.BossBarColor.PURPLE, BossEvent.BossBarOverlay.NOTCHED_12);
 
-    private double groundY;
-    private double anchorX;
-    private double anchorZ;
-    private boolean landed = true;
-    private int cooldown = 60;
-    private int slamTimer;
-    private boolean enraged;
+    protected double groundY;
+    protected double anchorX;
+    protected double anchorZ;
+    protected boolean landed = true;
+    protected int cooldown = 60;
+    protected int slamTimer;
+    protected boolean enraged;
 
     public RiftReaver(EntityType<? extends RiftReaver> type, Level level) {
         super(type, level);
-        this.xpReward = 600;
+        this.xpReward = 400;
         setPersistenceRequired();
     }
 
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
-                .add(Attributes.MAX_HEALTH, 350.0)
-                .add(Attributes.ATTACK_DAMAGE, 14.0)
+                .add(Attributes.MAX_HEALTH, 300.0)
+                .add(Attributes.ATTACK_DAMAGE, 12.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.27)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.9)
-                .add(Attributes.ARMOR, 10.0)
+                .add(Attributes.ARMOR, 8.0)
                 .add(Attributes.FOLLOW_RANGE, 48.0)
                 .add(Attributes.ATTACK_KNOCKBACK, 1.2);
     }
@@ -198,7 +208,7 @@ public class RiftReaver extends Monster implements GeoEntity {
                 setDeltaMovement(Vec3.ZERO);
                 fallDistance = 0.0F;
                 if (level() instanceof ServerLevel sl) {
-                    double top = entityData.get(RIFT_Y) + START_OFFSET;
+                    double top = entityData.get(RIFT_Y) + startOffset();
                     double p = Mth.clamp((age - DESCENT_START) / (double) (LAND_AGE - DESCENT_START), 0.0, 1.0);
                     double eased = p * p * (3.0 - 2.0 * p);
                     setPos(anchorX, Mth.lerp(eased, top, groundY), anchorZ);
@@ -279,7 +289,7 @@ public class RiftReaver extends Monster implements GeoEntity {
     }
 
     /** The boss touches the ground: roar, shockwave, spikes, title. */
-    private void land(ServerLevel sl) {
+    protected void land(ServerLevel sl) {
         landed = true;
         noPhysics = false;
         setNoGravity(false);
@@ -341,12 +351,12 @@ public class RiftReaver extends Monster implements GeoEntity {
             return;
         }
         LivingEntity target = getTarget();
-        if (target != null && target.isAlive() && distanceToSqr(target) < 28.0 * 28.0 && slamTimer == 0) {
+        if (target != null && target.isAlive() && distanceToSqr(target) < castRange() * castRange() && slamTimer == 0) {
             cast(sl, target);
         }
     }
 
-    private void enrage(ServerLevel sl) {
+    protected void enrage(ServerLevel sl) {
         enraged = true;
         getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.33);
         sl.playSound(null, getX(), getY(), getZ(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.HOSTILE, 5.0F, 0.5F);
@@ -361,7 +371,7 @@ public class RiftReaver extends Monster implements GeoEntity {
         }
     }
 
-    private void cast(ServerLevel sl, LivingEntity target) {
+    protected void cast(ServerLevel sl, LivingEntity target) {
         lookAt(target, 60.0F, 60.0F);
         switch (random.nextInt(3)) {
             case 0 -> {
@@ -410,7 +420,7 @@ public class RiftReaver extends Monster implements GeoEntity {
         cooldown = enraged ? 45 + random.nextInt(35) : 90 + random.nextInt(50);
     }
 
-    private void slam(ServerLevel sl) {
+    protected void slam(ServerLevel sl) {
         float dmg = enraged ? 18.0F : 13.0F;
         Vec3 c = position();
         for (LivingEntity e : sl.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(7.0, 2.0, 7.0))) {

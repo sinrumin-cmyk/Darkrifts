@@ -47,6 +47,7 @@ public final class RiftTeleporter {
             }
             return;
         }
+        RiftFx.depart(from, entity.position());
         if (rift.isReturning()) {
             goHome(entity, from);
         } else {
@@ -81,6 +82,7 @@ public final class RiftTeleporter {
         from.playSound(null, entity.blockPosition(), SoundEvents.PORTAL_TRAVEL, SoundSource.PLAYERS, 0.4F, 1.4F);
         Vec3 pos = new Vec3(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5);
         move(entity, dest, pos, yaw);
+        RiftFx.arrive(dest, pos);
     }
 
     /** Sends the entity back to where it entered the dark realm (or the overworld spawn). */
@@ -113,6 +115,7 @@ public final class RiftTeleporter {
         }
         from.playSound(null, entity.blockPosition(), SoundEvents.PORTAL_TRAVEL, SoundSource.PLAYERS, 0.4F, 1.0F);
         move(entity, dest, pos, yaw);
+        RiftFx.arrive(dest, pos);
     }
 
     private static void move(Entity entity, ServerLevel dest, Vec3 pos, float yaw) {
