@@ -310,7 +310,6 @@ public class SanctumCoreBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    @Override
     public AABB getRenderBoundingBox() {
         return new AABB(worldPosition).inflate(30.0, 0.0, 30.0).expandTowards(0.0, 70.0, 0.0).expandTowards(0.0, -4.0, 0.0);
     }

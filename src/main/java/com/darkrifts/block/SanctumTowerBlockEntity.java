@@ -132,7 +132,6 @@ public class SanctumTowerBlockEntity extends BlockEntity {
         }
     }
 
-    @Override
     public AABB getRenderBoundingBox() {
         return new AABB(worldPosition).inflate(4.0, 0.0, 4.0).expandTowards(0.0, 40.0, 0.0);
     }
